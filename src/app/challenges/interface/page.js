@@ -58,6 +58,7 @@ export default function ChallengeInterfacePage() {
   // OTP hook
   const {
     sendOTP,
+    verifyOTP,
     resendOTP,
     loading: otpLoading,
     error: otpError,
@@ -182,7 +183,7 @@ export default function ChallengeInterfacePage() {
     else setLocalError(otpError || reduxError || "Failed to send OTP. Please try again.");
   };
 
-  const handleVerifyOTP = (code) => {
+  const handleVerifyOTP = async (code) => {
     setLocalError(null);
     dispatch(clearError());
     setOtpCode(code);
@@ -190,12 +191,16 @@ export default function ChallengeInterfacePage() {
       setLocalError("Please enter a valid 6-digit OTP code");
       return;
     }
-    // Simulation bypass
-    setOtpVerified(true);
-    setOtpStep("verified");
-    setLocalError(null);
-    dispatch(setPhone(phone));
-    storeVerification(phone, challengeId);
+
+    const success = await verifyOTP(code);
+
+    if (success) {
+      setOtpVerified(true);
+      setOtpStep("verified");
+      setLocalError(null);
+      dispatch(setPhone(phone));
+      storeVerification(phone, challengeId);
+    }
   };
 
   const displayError = localError || reduxError || otpError;

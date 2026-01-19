@@ -225,19 +225,17 @@ export default function RegisterPage() {
             return;
         }
 
-        /*
-                if (!otpVerified) {
-                    setError("Please verify your phone number with OTP before submitting");
-                    return;
-                }
-        
-                if (formatPhoneNumber(formData.phone) !== otpPhoneNumber) {
-                    setError("The phone number has changed. Please re-verify with OTP.");
-                    setOtpStep("phone");
-                    resetOtp();
-                    return;
-                }
-        */
+        if (!otpVerified) {
+            setError("Please verify your phone number with OTP before submitting");
+            return;
+        }
+
+        if (formatPhoneNumber(formData.phone) !== otpPhoneNumber) {
+            setError("The phone number has changed. Please re-verify with OTP.");
+            setOtpStep("phone");
+            resetOtp();
+            return;
+        }
 
         try {
             setSubmitting(true);
@@ -778,8 +776,8 @@ export default function RegisterPage() {
                                     <div className="pt-8 mt-8 border-t border-gray-100">
                                         <button
                                             type="submit"
-                                            disabled={submitting /*|| !otpVerified*/}
-                                            className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 ${/*otpVerified &&*/ !submitting
+                                            disabled={submitting || !otpVerified}
+                                            className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 ${otpVerified && !submitting
                                                 ? "bg-gradient-to-r from-orange-600 to-orange-500 text-white shadow-orange-500/25 hover:shadow-orange-500/40"
                                                 : "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
                                                 }`}

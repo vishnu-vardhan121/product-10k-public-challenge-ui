@@ -20,6 +20,7 @@ import {
 } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import { useServerTime } from "@/hooks/useServerTime";
+import CountdownTimer from "@/components/CountdownTimer";
 
 export default function ChallengesPage() {
   const dispatch = useDispatch();
@@ -70,6 +71,8 @@ export default function ChallengesPage() {
         text: "Upcoming",
         color: "bg-blue-50 text-blue-700 border-blue-200",
         icon: FaClock,
+        target_time: regStart,
+        timer_label: "Registration opens in"
       };
     } else if (now >= regStart && now <= regEnd) {
       // Logic fix: specific backend status check
@@ -79,6 +82,8 @@ export default function ChallengesPage() {
           text: "Coming Soon",
           color: "bg-orange-50 text-orange-700 border-orange-200",
           icon: FaClock,
+          target_time: challengeStart,
+          timer_label: "Challenge starts in"
         };
       }
       return {
@@ -86,6 +91,8 @@ export default function ChallengesPage() {
         text: "Registration Open",
         color: "bg-green-50 text-green-700 border-green-200",
         icon: FaCheckCircle,
+        target_time: regEnd,
+        timer_label: "Registration closes in"
       };
     } else if (
       challengeStart &&
@@ -98,6 +105,8 @@ export default function ChallengesPage() {
         text: "Ongoing",
         color: "bg-orange-50 text-orange-700 border-orange-200",
         icon: FaClock,
+        target_time: challengeEnd,
+        timer_label: "Challenge ends in"
       };
     } else if (challengeEnd && now > challengeEnd) {
       return {
@@ -105,6 +114,8 @@ export default function ChallengesPage() {
         text: "Ended",
         color: "bg-gray-100 text-gray-600 border-gray-200",
         icon: FaCheckCircle,
+        target_time: null,
+        timer_label: null
       };
     }
     return {
@@ -112,6 +123,8 @@ export default function ChallengesPage() {
       text: "Available",
       color: "bg-purple-50 text-purple-700 border-purple-200",
       icon: FaCheckCircle,
+      target_time: null,
+      timer_label: null
     };
   };
 
@@ -284,6 +297,16 @@ export default function ChallengesPage() {
                               <StatusIcon className="text-xs" />
                               {status.text}
                             </span>
+
+                            {/* NEW: Countdown Timer */}
+                            {status.target_time && status.timer_label && (
+                              <div className="flex items-center gap-2 text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full border border-gray-200">
+                                <span>{status.timer_label}:</span>
+                                <span className="text-orange-600">
+                                  <CountdownTimer targetDate={status.target_time} />
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>

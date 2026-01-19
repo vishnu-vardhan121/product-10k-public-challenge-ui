@@ -189,9 +189,9 @@ export const fetchMyScore = createAsyncThunk(
 
 export const fetchPublicChallengeDraft = createAsyncThunk(
   'publicChallenge/fetchDraft',
-  async ({ challengeId, problemId, userId }, { rejectWithValue }) => {
+  async ({ challengeId, problemId, userId, language }, { rejectWithValue }) => {
     try {
-      const response = await getDraft(challengeId, problemId, userId);
+      const response = await getDraft(challengeId, problemId, userId, language);
       return response?.data ? { ...response.data, problemId } : null;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch draft');

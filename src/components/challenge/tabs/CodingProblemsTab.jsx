@@ -177,7 +177,8 @@ export default function CodingProblemsTab({
     dispatch(fetchPublicChallengeDraft({
       challengeId,
       problemId: selectedProblemId,
-      userId
+      userId,
+      language: selectedLanguage
     }))
       .unwrap()
       .then((draft) => {

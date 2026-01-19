@@ -209,9 +209,12 @@ export const saveDraft = async (challengeId, problemId, userId, language, source
  * @param {number} problemId - Problem ID
  * @param {number} userId - User ID
  */
-export const getDraft = async (challengeId, problemId, userId) => {
+export const getDraft = async (challengeId, problemId, userId, language) => {
   const response = await axios.get(`${API_BASE}/challenges/${challengeId}/problems/${problemId}/draft/`, {
-    params: { user_id: userId }
+    params: {
+      user_id: userId,
+      language: language
+    }
   });
   return response.data;
 };

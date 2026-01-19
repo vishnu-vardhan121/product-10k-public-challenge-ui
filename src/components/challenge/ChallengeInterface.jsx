@@ -199,7 +199,68 @@ export default function ChallengeInterface({ challengeId }) {
   };
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
+    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden relative">
+      {/* Challenge Ended Overlay */}
+      {isChallengeEnded && (
+        <div
+          className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-gray-50"
+        >
+          <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full p-16 text-center">
+            {/* Success Icon */}
+            <div className="mb-10">
+              <div className="w-28 h-28 bg-orange-500 rounded-full mx-auto flex items-center justify-center mb-8 animate-pulse">
+                <svg className="w-16 h-16 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            </div>
+
+            {/* Main Heading */}
+            <h1 className="text-6xl font-bold text-gray-900 mb-6">
+              Thank You!
+            </h1>
+
+            <p className="text-2xl text-gray-600 mb-12 leading-relaxed">
+              Your challenge has been completed successfully.<br />
+              Our team will review your submissions and contact you soon.
+            </p>
+
+            {/* Divider */}
+            <div className="w-24 h-1 bg-orange-500 mx-auto mb-12"></div>
+
+            {/* Info Box */}
+            <div className="bg-orange-50 rounded-2xl p-8 mb-12 border-2 border-orange-200">
+              <div className="flex items-center justify-center gap-4">
+                <svg className="w-7 h-7 text-orange-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span className="text-xl font-semibold text-orange-900">All your answers have been saved</span>
+              </div>
+            </div>
+
+            {/* Logo */}
+            <div className="mb-10">
+              <img
+                src="/logos/10k_logo_black.webp"
+                alt="10000 Coders"
+                className="h-14 mx-auto object-contain opacity-80"
+              />
+            </div>
+
+            {/* Home Button */}
+            <a
+              href="/"
+              className="inline-flex items-center gap-3 px-10 py-5 bg-orange-500 hover:bg-orange-600 text-white font-bold text-xl rounded-2xl transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-1"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              Back to Home
+            </a>
+          </div>
+        </div>
+      )}
+
       {/* Tabs Navigation - Fixed at top */}
       <div className="flex-shrink-0 bg-white border-b border-gray-200 shadow-sm">
         <div className="flex items-center justify-between px-6 py-4">

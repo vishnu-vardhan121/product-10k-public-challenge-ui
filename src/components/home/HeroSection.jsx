@@ -27,20 +27,6 @@ const HeroSection = () => {
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-32">
         <div className="text-center">
-          {/* Logo Badge */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="mb-8 inline-block"
-          >
-            <img
-              src="/logos/10k_logo_white.webp"
-              alt="10,000 Coders"
-              className="h-16 md:h-20 mx-auto brightness-0 invert opacity-90 hover:opacity-100 transition-opacity"
-            />
-          </motion.div>
-
           {/* Main Heading */}
           <motion.h1
             className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-tight tracking-tight"
@@ -88,7 +74,6 @@ const HeroSection = () => {
             </Link>
           </motion.div>
 
-          {/* Glassmorphism Stats */}
           <motion.div
             className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-5xl mx-auto"
             initial={{ opacity: 0, y: 20 }}
@@ -104,7 +89,6 @@ const HeroSection = () => {
                 key={index}
                 className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors group"
               >
-                <stat.icon className="text-4xl text-orange-400 mx-auto mb-3 group-hover:scale-110 transition-transform" />
                 <div className="text-4xl font-bold text-white mb-1">
                   {isVisible && (
                     <CountUp end={stat.end} duration={2.5} suffix={stat.suffix} />
