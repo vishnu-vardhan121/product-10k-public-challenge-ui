@@ -1,8 +1,8 @@
 "use client";
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { runSample, submitProblem, savePublicChallengeDraft, fetchPublicChallengeDraft } from "@/redux/features/publicChallenge/publicChallengeSlice";
+import { runSample, submitProblem, savePublicChallengeDraft, fetchPublicChallengeDraft, updateProblemCode } from "@/redux/features/publicChallenge/publicChallengeSlice";
 import MonacoEditor from "@/components/problemsComponents/MonacoEditor";
 import ChallengeWorkspaceLayout from "@/components/challenge/workspace/ChallengeWorkspaceLayout";
 import ProblemDescription from "@/components/challenge/editor/ProblemDescription";
@@ -16,6 +16,8 @@ import {
 import { generateCodeTemplate, getSupportedLanguages } from "@/utils/codeTemplates";
 import { debounce } from "@/utils/debounce";
 import { getStoredLayout, storeLayout } from "@/utils/panelLayoutStorage";
+
+const normalizeDraftText = (value = "") => String(value).replace(/\r\n/g, "\n").trim();
 
 const InlineButtonSpinner = ({ className = '' }) => (
   <svg
@@ -62,6 +64,8 @@ export default function CodingProblemsTab({
   timeLeft = { hours: 0, minutes: 0, seconds: 0 },
 }) {
   const dispatch = useDispatch();
+  const problemSubmissions = useSelector((state) => state.publicChallenge.problemSubmissions);
+
   const [code, setCode] = useState("");
   const [selectedLanguage, setSelectedLanguage] = useState("javascript");
   const [submitting, setSubmitting] = useState(false);
@@ -74,6 +78,14 @@ export default function CodingProblemsTab({
   const [sampleRunResult, setSampleRunResult] = useState(null);
   const [sampleRunLoading, setSampleRunLoading] = useState(false);
   const [sampleRunError, setSampleRunError] = useState(null);
+  const [submissionResult, setSubmissionResult] = useState(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+
+  const lastDraftFetchKeyRef = useRef(null);
+  const lastSavedByKeyRef = useRef({});
+  const saveTimeoutRef = useRef(null);
+  const pendingSaveArgsRef = useRef(null);
+  const savingKeyRef = useRef(null);
 
   // Panel layout state - must be declared before any early returns
   const [horizontalLayout, setHorizontalLayout] = useState(null);
@@ -84,6 +96,101 @@ export default function CodingProblemsTab({
     () => problems?.find((p) => p.id === selectedProblemId),
     [problems, selectedProblemId]
   );
+
+  const solvedSubmission = selectedProblem?.user_submission || null;
+  const isSolvedReadOnly = Boolean(selectedProblem?.is_solved && solvedSubmission && !isEditMode);
+
+  const currentTemplate = useMemo(() => {
+    if (!selectedProblem || !selectedLanguage) return "";
+    if (!selectedProblem?.interface_spec) return "";
+    return generateCodeTemplate(
+      selectedLanguage,
+      selectedProblem.interface_spec,
+      selectedProblem.function_templates
+    );
+  }, [selectedProblem, selectedLanguage]);
+
+  const shouldPersistDraft = useCallback((codeToSave) => {
+    const normalizedCode = normalizeDraftText(codeToSave);
+    if (!normalizedCode) return false;
+
+    const normalizedTemplate = normalizeDraftText(currentTemplate);
+    if (normalizedTemplate && normalizedCode === normalizedTemplate) return false;
+
+    return true;
+  }, [currentTemplate]);
+
+  const doSaveDraft = useCallback(async (codeToSave, problemId, lang) => {
+    if (!problemId || !lang || !userId) return;
+
+    // If this is the currently selected problem and it is solved (read-only), don't save drafts.
+    if (problemId === selectedProblemId && isSolvedReadOnly) return;
+
+    const saveKey = `${challengeId}:${userId}:${problemId}:${lang}`;
+    const normalizedCode = normalizeDraftText(codeToSave);
+
+    if (!shouldPersistDraft(codeToSave)) return;
+
+    if (lastSavedByKeyRef.current[saveKey] === normalizedCode) {
+      return;
+    }
+
+    if (savingKeyRef.current === saveKey) {
+      return;
+    }
+
+    savingKeyRef.current = saveKey;
+    setSaveStatus("saving");
+
+    try {
+      await dispatch(savePublicChallengeDraft({
+        challengeId,
+        problemId,
+        userId,
+        language: lang,
+        sourceCode: codeToSave,
+      })).unwrap();
+
+      lastSavedByKeyRef.current[saveKey] = normalizedCode;
+      dispatch(updateProblemCode({ problemId, language: lang, sourceCode: codeToSave }));
+
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus(""), 2000);
+    } catch {
+      setSaveStatus("");
+    } finally {
+      if (savingKeyRef.current === saveKey) {
+        savingKeyRef.current = null;
+      }
+    }
+  }, [challengeId, userId, dispatch, shouldPersistDraft, selectedProblemId, isSolvedReadOnly]);
+
+  const scheduleSaveDraft = useCallback((codeToSave, problemId, lang) => {
+    pendingSaveArgsRef.current = { codeToSave, problemId, lang };
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(() => {
+      const args = pendingSaveArgsRef.current;
+      pendingSaveArgsRef.current = null;
+      if (args) {
+        doSaveDraft(args.codeToSave, args.problemId, args.lang);
+      }
+    }, 3000);
+  }, [doSaveDraft]);
+
+  const flushPendingSave = useCallback(async () => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    const args = pendingSaveArgsRef.current;
+    pendingSaveArgsRef.current = null;
+    if (args) {
+      await doSaveDraft(args.codeToSave, args.problemId, args.lang);
+    }
+  }, [doSaveDraft]);
 
   const languages = useMemo(
     () => getSupportedLanguages(selectedProblem?.interface_spec),
@@ -104,31 +211,6 @@ export default function CodingProblemsTab({
     }
     return [];
   }, [selectedProblem]);
-
-  // Debounced auto-save function
-  const debouncedSave = useCallback(
-    debounce((codeToSave, problemId, lang) => {
-      if (codeToSave && problemId && lang && userId) {
-        setSaveStatus("saving");
-        dispatch(savePublicChallengeDraft({
-          challengeId,
-          problemId,
-          userId,
-          language: lang,
-          sourceCode: codeToSave
-        }))
-          .unwrap()
-          .then(() => {
-            setSaveStatus("saved");
-            setTimeout(() => setSaveStatus(""), 2000);
-          })
-          .catch(() => {
-            setSaveStatus("");
-          });
-      }
-    }, 1000),
-    [challengeId, userId, dispatch]
-  );
 
   // Load saved layouts on mount
   useEffect(() => {
@@ -171,6 +253,39 @@ export default function CodingProblemsTab({
   useEffect(() => {
     if (!selectedProblemId || !selectedLanguage || !userId) return;
 
+    // If problem already solved and not in edit mode, load latest AC submission and lock editor.
+    if (isSolvedReadOnly && solvedSubmission) {
+      setIsLoadingCode(true);
+      const solvedLang = solvedSubmission.language || selectedLanguage;
+      const solvedCode = solvedSubmission.source_code || '';
+      if (solvedLang && solvedLang !== selectedLanguage) {
+        setSelectedLanguage(solvedLang);
+      }
+      setCode(solvedCode);
+      setIsLoadingCode(false);
+      return;
+    }
+
+    const fetchKey = `${challengeId}:${userId}:${selectedProblemId}:${selectedLanguage}`;
+    if (lastDraftFetchKeyRef.current === fetchKey) {
+      return;
+    }
+    lastDraftFetchKeyRef.current = fetchKey;
+
+    const cached = problemSubmissions?.[selectedProblemId];
+    if (cached && cached.language === selectedLanguage && typeof cached.source_code === 'string') {
+      setIsLoadingCode(true);
+      if (shouldPersistDraft(cached.source_code)) {
+        setCode(cached.source_code);
+      } else if (currentTemplate) {
+        setCode(currentTemplate);
+      } else {
+        setCode("");
+      }
+      setIsLoadingCode(false);
+      return;
+    }
+
     setIsLoadingCode(true);
 
     // Fetch draft from backend
@@ -182,7 +297,7 @@ export default function CodingProblemsTab({
     }))
       .unwrap()
       .then((draft) => {
-        if (draft && draft.source_code && draft.language === selectedLanguage) {
+        if (draft && draft.source_code && draft.language === selectedLanguage && shouldPersistDraft(draft.source_code)) {
           setCode(draft.source_code);
         } else {
           // Fallback to template if no draft
@@ -213,28 +328,31 @@ export default function CodingProblemsTab({
         setIsLoadingCode(false);
       });
 
-  }, [selectedProblemId, selectedLanguage, userId, challengeId, dispatch]);
+  }, [selectedProblemId, selectedLanguage, userId, challengeId, dispatch, selectedProblem, shouldPersistDraft, problemSubmissions, currentTemplate]);
 
   // Auto-save code draft when code changes
   const handleCodeChange = useCallback((newCode) => {
+    if (isSolvedReadOnly) {
+      return;
+    }
     setCode(newCode);
     if (selectedProblemId && selectedLanguage) {
-      debouncedSave(newCode, selectedProblemId, selectedLanguage);
+      scheduleSaveDraft(newCode, selectedProblemId, selectedLanguage);
     }
-  }, [selectedProblemId, selectedLanguage, debouncedSave]);
+  }, [selectedProblemId, selectedLanguage, scheduleSaveDraft, isSolvedReadOnly]);
 
   // Handle language change
   const handleLanguageChange = useCallback(
     async (newLanguage) => {
+      if (isSolvedReadOnly) return;
       if (selectedLanguage === newLanguage) return;
-      if (code.trim()) {
-        await debouncedSave(code, selectedProblemId, selectedLanguage);
-      }
+      await flushPendingSave();
+      await doSaveDraft(code, selectedProblemId, selectedLanguage);
       setIsLoadingCode(true);
       setCode('');
       setSelectedLanguage(newLanguage);
     },
-    [selectedLanguage, code, selectedProblemId, debouncedSave]
+    [selectedLanguage, code, selectedProblemId, flushPendingSave, doSaveDraft, isSolvedReadOnly]
   );
 
   // Handle problem selection
@@ -243,19 +361,33 @@ export default function CodingProblemsTab({
       if (!problem?.id) return;
 
       // Save current draft before switching
-      if (code.trim() && selectedProblemId) {
-        await debouncedSave(code, selectedProblemId, selectedLanguage);
+      if (!isSolvedReadOnly) {
+        await flushPendingSave();
+        await doSaveDraft(code, selectedProblemId, selectedLanguage);
       }
 
       onSelectProblem(problem.id);
+      setIsEditMode(false);
       setSampleRunResult(null);
+      setSubmissionResult(null);
       setSampleRunError(null);
     },
-    [code, selectedProblemId, selectedLanguage, debouncedSave, onSelectProblem]
+    [code, selectedProblemId, selectedLanguage, onSelectProblem, flushPendingSave, doSaveDraft, isSolvedReadOnly]
   );
+
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Handle Run (sample run)
   const handleRun = useCallback(async () => {
+    if (isSolvedReadOnly) {
+      return;
+    }
     if (!selectedProblem?.id || !code.trim()) {
       setError("Please write some code before running");
       return;
@@ -264,6 +396,7 @@ export default function CodingProblemsTab({
     setSampleRunLoading(true);
     setSampleRunError(null);
     setSampleRunResult(null);
+    setSubmissionResult(null);
     setError(null);
 
     try {
@@ -298,9 +431,12 @@ export default function CodingProblemsTab({
     } finally {
       setSampleRunLoading(false);
     }
-  }, [selectedProblem, selectedProblemId, code, selectedLanguage, userId, registrationId, challengeId, dispatch]);
+  }, [selectedProblem, selectedProblemId, code, selectedLanguage, userId, registrationId, challengeId, dispatch, isSolvedReadOnly]);
 
   const handleSubmit = async () => {
+    if (isSolvedReadOnly) {
+      return;
+    }
     if (!code.trim()) {
       setError("Please write some code before submitting.");
       return;
@@ -309,9 +445,10 @@ export default function CodingProblemsTab({
     setSubmitting(true);
     setError(null);
     setSampleRunResult(null);
+    setSubmissionResult(null);
 
     try {
-      await dispatch(
+      const result = await dispatch(
         submitProblem({
           challengeId,
           problemId: selectedProblemId,
@@ -323,14 +460,20 @@ export default function CodingProblemsTab({
         })
       ).unwrap();
 
-      setSubmitted(true);
-      // Clear draft logic if needed, but for now we keep it or let backend handle it.
-      // Ideally successful submission might clear draft or update it.
-
-      // Reset after 3 seconds
-      setTimeout(() => {
-        setSubmitted(false);
-      }, 3000);
+      if (result.success && result.data) {
+        setSubmissionResult(result.data);
+        setSubmitted(true);
+        // If AC, exit edit mode (lock again on solved)
+        if (result.data?.execution_result?.verdict === 'AC' || result.data?.submission?.verdict === 'AC') {
+          setIsEditMode(false);
+        }
+        // Reset after 3 seconds
+        setTimeout(() => {
+          setSubmitted(false);
+        }, 3000);
+      } else {
+        setError(result.message || "Submission failed");
+      }
     } catch (err) {
       setError(err?.message || "Failed to submit solution. Please try again.");
     } finally {
@@ -340,6 +483,7 @@ export default function CodingProblemsTab({
 
   const handleClearSampleRun = useCallback(() => {
     setSampleRunResult(null);
+    setSubmissionResult(null);
     setSampleRunError(null);
   }, []);
 
@@ -432,6 +576,7 @@ export default function CodingProblemsTab({
                 {problems.map((problem, index) => {
                   const isCurrent = problem.id === selectedProblemId;
                   const problemNumber = index + 1;
+                  const isSolved = Boolean(problem?.is_solved);
 
                   return (
                     <div
@@ -463,6 +608,11 @@ export default function CodingProblemsTab({
                             >
                               {problem.title || `Problem ${problemNumber}`}
                             </h3>
+                            {isSolved && (
+                              <div className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
+                                <FaCheckCircle className="text-emerald-600" /> Solved
+                              </div>
+                            )}
                             <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
                               {problem.difficulty && (
                                 <span className={`${problem.difficulty?.toLowerCase().includes('easy') ? 'text-teal-600' :
@@ -534,7 +684,7 @@ export default function CodingProblemsTab({
             <select
               value={selectedLanguage}
               onChange={(e) => handleLanguageChange(e.target.value)}
-              disabled={isLoadingCode}
+              disabled={isLoadingCode || isSolvedReadOnly}
               className="px-2.5 lg:px-3 xl:px-3 2xl:px-4 py-1.5 lg:py-1.5 xl:py-2 2xl:py-2 text-xs lg:text-sm xl:text-sm 2xl:text-base bg-gray-700 text-white rounded border border-gray-600 focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
             >
               {languages.map((lang) => (
@@ -560,9 +710,20 @@ export default function CodingProblemsTab({
                 <FaSave /> Saved!
               </span>
             )}
+
+            {Boolean(selectedProblem?.is_solved && solvedSubmission) && isSolvedReadOnly && (
+              <button
+                type="button"
+                onClick={() => setIsEditMode(true)}
+                className="inline-flex items-center justify-center px-3 lg:px-4 xl:px-4 2xl:px-5 py-1.5 lg:py-1.5 xl:py-2 2xl:py-2 text-xs lg:text-sm xl:text-sm 2xl:text-base font-medium text-white bg-gray-600 hover:bg-gray-500 rounded transition-colors"
+                title="Edit solved submission"
+              >
+                Edit
+              </button>
+            )}
             <button
               onClick={handleRun}
-              disabled={sampleRunLoading || submitting || !code.trim()}
+              disabled={isSolvedReadOnly || sampleRunLoading || submitting || !code.trim()}
               className="inline-flex min-w-[92px] items-center justify-center px-3 lg:px-4 xl:px-4 2xl:px-5 py-1.5 lg:py-1.5 xl:py-2 2xl:py-2 text-xs lg:text-sm xl:text-sm 2xl:text-base font-medium text-white bg-orange-600 hover:bg-orange-700 disabled:bg-orange-600/50 disabled:cursor-not-allowed rounded transition-colors"
               title="Run code with sample test cases"
             >
@@ -570,7 +731,7 @@ export default function CodingProblemsTab({
             </button>
             <button
               onClick={handleSubmit}
-              disabled={submitting || sampleRunLoading || !code.trim() || !selectedProblem}
+              disabled={isSolvedReadOnly || submitting || sampleRunLoading || !code.trim() || !selectedProblem}
               className="inline-flex min-w-[96px] items-center justify-center px-3 lg:px-4 xl:px-4 2xl:px-5 py-1.5 lg:py-1.5 xl:py-2 2xl:py-2 text-xs lg:text-sm xl:text-sm 2xl:text-base font-medium text-white bg-red-600 hover:bg-red-700 disabled:bg-red-600/50 disabled:cursor-not-allowed rounded transition-colors"
               title="Submit solution for evaluation"
             >
@@ -595,6 +756,7 @@ export default function CodingProblemsTab({
             defaultValue={code}
             onChange={handleCodeChange}
             challengeMode={true}
+            readOnly={isSolvedReadOnly}
           />
         )}
       </div>
@@ -605,8 +767,9 @@ export default function CodingProblemsTab({
   const resultsPanelContent = (
     <TestResults
       sampleRunResult={sampleRunResult}
-      loading={{ sampleRun: sampleRunLoading }}
-      error={sampleRunError}
+      submissionResult={submissionResult}
+      loading={{ sampleRun: sampleRunLoading, submit: submitting }}
+      error={sampleRunError || error}
       onClearSampleRun={handleClearSampleRun}
       selectedTestCase={selectedTestCase}
       setSelectedTestCase={setSelectedTestCase}

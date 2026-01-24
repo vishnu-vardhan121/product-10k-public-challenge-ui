@@ -9,10 +9,11 @@ import {
   getCodingProblems,
   runSampleTests,
   submitProblemSolution,
-  getMyScore,
   getDraft,
   saveDraft,
+  registerForChallenge,
 } from '@/services/publicChallengeApi';
+
 
 const initialState = {
   challenges: [],
@@ -26,15 +27,11 @@ const initialState = {
   userName: null,
   registrationId: null,
   loading: {
-    challenges: false,
-    challengeDetails: false,
-    checkRegistration: false,
-    mcqQuestions: false,
-    codingProblems: false,
-    submitMCQ: false,
     submitProblem: false,
     myScore: false,
+    register: false,
   },
+
   timeOffset: 0,
   error: null,
   mcqAnswers: {}, // { questionId: { selected_option_id?, text_answer? } }
@@ -207,6 +204,18 @@ export const savePublicChallengeDraft = createAsyncThunk(
       return response;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to save draft');
+    }
+  }
+);
+
+export const registerUser = createAsyncThunk(
+  'publicChallenge/register',
+  async (registrationData, { rejectWithValue }) => {
+    try {
+      const response = await registerForChallenge(registrationData);
+      return response;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Registration failed');
     }
   }
 );
@@ -410,12 +419,34 @@ const publicChallengeSlice = createSlice({
       })
       .addCase(submitProblem.fulfilled, (state, action) => {
         state.loading.submitProblem = false;
-        const result = action.payload?.data || action.payload;
-        if (result?.problem_id) {
-          if (!state.problemSubmissions[result.problem_id]) {
-            state.problemSubmissions[result.problem_id] = {};
+        const problemId = action.meta?.arg?.problemId;
+        const response = action.payload;
+        const payloadData = response?.data;
+
+        if (problemId) {
+          if (!state.problemSubmissions[problemId]) {
+            state.problemSubmissions[problemId] = {};
           }
-          state.problemSubmissions[result.problem_id].result = result;
+          state.problemSubmissions[problemId].result = payloadData || response;
+
+          const submission = payloadData?.submission;
+          const verdict = submission?.verdict || payloadData?.execution_result?.verdict;
+          if (verdict === 'AC') {
+            const idx = state.codingProblems.findIndex((p) => p.id === problemId);
+            if (idx !== -1) {
+              state.codingProblems[idx].is_solved = true;
+              // Store the latest solved submission so UI can load solved code read-only
+              state.codingProblems[idx].user_submission = {
+                id: submission?.id,
+                problem_id: submission?.problem,
+                language: submission?.language,
+                source_code: submission?.source_code,
+                verdict: submission?.verdict,
+                submitted_at: submission?.submitted_at,
+                finished_at: submission?.finished_at,
+              };
+            }
+          }
         }
       })
       .addCase(submitProblem.rejected, (state, action) => {
@@ -449,6 +480,26 @@ const publicChallengeSlice = createSlice({
           state.problemSubmissions[problemId].language = language;
           state.problemSubmissions[problemId].source_code = source_code;
         }
+      })
+
+      // Register User
+      .addCase(registerUser.pending, (state) => {
+        state.loading.register = true;
+        state.error = null;
+      })
+      .addCase(registerUser.fulfilled, (state, action) => {
+        state.loading.register = false;
+        if (action.payload?.success) {
+          state.userId = action.payload.user_id;
+          state.registrationId = action.payload.registration_id;
+          if (action.payload.data?.user?.name) {
+            state.userName = action.payload.data.user.name;
+          }
+        }
+      })
+      .addCase(registerUser.rejected, (state, action) => {
+        state.loading.register = false;
+        state.error = action.payload;
       });
   },
 });

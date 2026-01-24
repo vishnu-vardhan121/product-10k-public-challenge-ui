@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   fetchMCQQuestions,
@@ -7,6 +7,10 @@ import {
 } from "@/redux/features/publicChallenge/publicChallengeSlice";
 import ChallengeTimer from "./ChallengeTimer";
 import { getNowMs, initTimeSync, syncServerTime } from '@/utils/timeSync';
+import RegistrationModal from "@/components/registration/RegistrationModal";
+import { registerUser } from "@/redux/features/publicChallenge/publicChallengeSlice";
+import { useRouter } from "next/navigation";
+
 
 // Inline timer component for compact display
 const CompactTimer = ({ timeLeft }) => {
@@ -37,6 +41,10 @@ export default function ChallengeInterface({ challengeId }) {
   const dispatch = useDispatch();
   const [activeTab, setActiveTab] = useState("mcq"); // 'mcq' | 'coding'
   const [selectedProblemId, setSelectedProblemId] = useState(null);
+  const [showRegistration, setShowRegistration] = useState(false);
+  const router = useRouter();
+  const lastMCQFetchKeyRef = useRef(null);
+  const lastProblemsFetchKeyRef = useRef(null);
 
   const {
     currentChallenge: challenge,
@@ -57,8 +65,8 @@ export default function ChallengeInterface({ challengeId }) {
     return {
       currentChallenge: challenge,
       // Use challenge details data if available, otherwise use separate state
-      mcqQuestions: mcqFromChallenge.length > 0 ? mcqFromChallenge : state.publicChallenge.mcqQuestions,
-      codingProblems: problemsFromChallenge.length > 0 ? problemsFromChallenge : state.publicChallenge.codingProblems,
+      mcqQuestions: state.publicChallenge.mcqQuestions.length > 0 ? state.publicChallenge.mcqQuestions : mcqFromChallenge,
+      codingProblems: state.publicChallenge.codingProblems.length > 0 ? state.publicChallenge.codingProblems : problemsFromChallenge,
       phone: state.publicChallenge.phone,
       accessCode: state.publicChallenge.accessCode,
       userId: state.publicChallenge.userId,
@@ -80,6 +88,16 @@ export default function ChallengeInterface({ challengeId }) {
     const resyncInterval = setInterval(() => syncServerTime(), 5 * 60 * 1000);
     return () => clearInterval(resyncInterval);
   }, []);
+
+  useEffect(() => {
+    // Check if user is registered/logged in
+    // If not, show registration modal
+    if (!loading.checkRegistration && !userId && !registrationId) {
+      setShowRegistration(true);
+    } else {
+      setShowRegistration(false);
+    }
+  }, [userId, registrationId, loading.checkRegistration]);
 
   useEffect(() => {
     if (!challenge?.challenge_end_at) return;
@@ -118,21 +136,36 @@ export default function ChallengeInterface({ challengeId }) {
     const hasMCQFromChallenge = challenge?.mcq_questions && Array.isArray(challenge.mcq_questions) && challenge.mcq_questions.length > 0;
     const hasProblemsFromChallenge = challenge?.problems && Array.isArray(challenge.problems) && challenge.problems.length > 0;
 
-    // Only fetch separately if not available from challenge details
-    if (activeTab === "mcq" && mcqQuestions.length === 0 && !hasMCQFromChallenge) {
-      dispatch(fetchMCQQuestions({
-        challengeId: parseInt(challengeId),
-        userId,
-        registrationId
-      }));
+    // Always fetch MCQ questions once per user session when MCQ tab is active.
+    // This ensures we receive user_submission data (prefill answers) from the backend.
+    if (activeTab === "mcq") {
+      const fetchKey = `${challengeId}:${userId}:${registrationId}`;
+      if (lastMCQFetchKeyRef.current !== fetchKey) {
+        lastMCQFetchKeyRef.current = fetchKey;
+        dispatch(fetchMCQQuestions({
+          challengeId: parseInt(challengeId),
+          userId,
+          registrationId
+        }));
+      }
     }
 
     if (activeTab === "coding" && codingProblems.length === 0 && !hasProblemsFromChallenge) {
-      dispatch(fetchCodingProblems({
-        challengeId: parseInt(challengeId),
-        userId,
-        registrationId
-      }));
+      // no-op: handled below
+    }
+
+    // Always fetch coding problems once per user session when Coding tab is active.
+    // This ensures we receive is_solved + user_submission (latest AC) from backend.
+    if (activeTab === "coding") {
+      const fetchKey = `${challengeId}:${userId}:${registrationId}`;
+      if (lastProblemsFetchKeyRef.current !== fetchKey) {
+        lastProblemsFetchKeyRef.current = fetchKey;
+        dispatch(fetchCodingProblems({
+          challengeId: parseInt(challengeId),
+          userId,
+          registrationId
+        }));
+      }
     }
 
   }, [challengeId, userId, registrationId, activeTab, dispatch, mcqQuestions.length, codingProblems.length, challenge]);
@@ -174,7 +207,7 @@ export default function ChallengeInterface({ challengeId }) {
             loading={loading.mcqQuestions}
             userId={userId}
             registrationId={registrationId}
-            phone={phone}
+            hasProblems={problemsCount > 0}
             onGoToProblems={() => setActiveTab("coding")}
           />
         );
@@ -195,6 +228,17 @@ export default function ChallengeInterface({ challengeId }) {
         );
       default:
         return null;
+    }
+  };
+
+  const handleRegistrationSubmit = async (formData) => {
+    const result = await dispatch(registerUser({
+      ...formData,
+      challenge_id: parseInt(challengeId)
+    }));
+
+    if (result.meta.requestStatus === 'fulfilled') {
+      setShowRegistration(false);
     }
   };
 
@@ -314,10 +358,17 @@ export default function ChallengeInterface({ challengeId }) {
         </div>
       </div>
 
-      {/* Tab Content - Takes remaining space, no scrolling */}
       <div className="flex-1 overflow-hidden">
         {renderTabContent()}
       </div>
+
+      <RegistrationModal
+        isOpen={showRegistration}
+        onClose={() => router.push('/')} // Redirect to home if they close the modal without registering
+        onSubmit={handleRegistrationSubmit}
+        loading={loading.register}
+        challengeTitle={challenge?.title}
+      />
     </div>
   );
 }

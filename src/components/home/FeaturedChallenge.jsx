@@ -14,6 +14,7 @@ import {
 } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { useServerTime } from "@/hooks/useServerTime";
+import CountdownTimer from "../CountdownTimer";
 
 const FeaturedChallenge = () => {
     const dispatch = useDispatch();
@@ -61,6 +62,11 @@ const FeaturedChallenge = () => {
                 return 'REGISTRATION_OPEN';
             }
 
+            // New: Check for "Starting Soon" gap (Registration closed, but not yet started)
+            if (start && now > regEnd && now < start) {
+                return 'STARTING_SOON';
+            }
+
             if (now < regStart) return 'UPCOMING';
             return 'ENDED';
         };
@@ -75,6 +81,9 @@ const FeaturedChallenge = () => {
 
         const upcoming = classified.find(c => c.derivedStatus === 'UPCOMING');
         if (upcoming) return upcoming;
+
+        const startingSoon = classified.find(c => c.derivedStatus === 'STARTING_SOON');
+        if (startingSoon) return startingSoon;
 
         // Fallback: Just take the first one if it's public (or the most recent ended one if we want to show something)
         // For now, let's show the first public one found
@@ -96,7 +105,9 @@ const FeaturedChallenge = () => {
     // Determine display properties based on status
     const isOngoing = featured.derivedStatus === 'ONGOING';
     const isRegOpen = featured.derivedStatus === 'REGISTRATION_OPEN';
+
     const isUpcoming = featured.derivedStatus === 'UPCOMING';
+    const isStartingSoon = featured.derivedStatus === 'STARTING_SOON';
 
     let statusText = "Challenge Unavailable";
     let StatusIcon = FaClock;
@@ -118,6 +129,11 @@ const FeaturedChallenge = () => {
         StatusIcon = FaClock;
         statusColor = "text-blue-400";
         badgeBg = "bg-blue-900/30 border-blue-500/50";
+    } else if (isStartingSoon) {
+        statusText = "STARTING SOON";
+        StatusIcon = FaClock;
+        statusColor = "text-orange-400";
+        badgeBg = "bg-orange-900/30 border-orange-500/50";
     }
 
     return (
@@ -141,6 +157,14 @@ const FeaturedChallenge = () => {
                             <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border w-fit mb-6 ${badgeBg}`}>
                                 <StatusIcon className={`${statusColor} animate-pulse`} />
                                 <span className={`text-sm font-bold tracking-wider ${statusColor}`}>{statusText}</span>
+                                {isStartingSoon && featured.challenge_start_at && (
+                                    <>
+                                        <span className="text-gray-500 mx-2">|</span>
+                                        <span className={`text-sm font-bold tracking-wider ${statusColor}`}>
+                                            <CountdownTimer targetDate={new Date(featured.challenge_start_at)} />
+                                        </span>
+                                    </>
+                                )}
                             </div>
 
                             <h2 className="text-3xl md:text-5xl font-bold text-white mb-6 leading-tight">
@@ -186,6 +210,13 @@ const FeaturedChallenge = () => {
                                 {isUpcoming && (
                                     <button disabled className="inline-flex items-center justify-center px-8 py-4 bg-gray-700 text-gray-400 font-bold rounded-xl cursor-not-allowed w-full sm:w-auto border border-gray-600">
                                         Coming Soon
+                                        <FaClock className="ml-2" />
+                                    </button>
+                                )}
+
+                                {isStartingSoon && (
+                                    <button disabled className="inline-flex items-center justify-center px-8 py-4 bg-orange-900/40 text-orange-400 font-bold rounded-xl border border-orange-500/30 w-full sm:w-auto">
+                                        Starts Soon
                                         <FaClock className="ml-2" />
                                     </button>
                                 )}

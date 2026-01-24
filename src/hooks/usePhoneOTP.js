@@ -219,6 +219,7 @@ export const usePhoneOTP = () => {
    * Reset OTP state
    */
   const reset = useCallback(() => {
+    setLoading(false);
     setError(null);
     setVerificationId(null);
     setIsVerified(false);

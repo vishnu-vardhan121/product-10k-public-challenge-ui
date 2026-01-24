@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import Link from "next/link";
 import { fetchChallenges } from "@/redux/features/publicChallenge/publicChallengeSlice";
@@ -14,15 +14,57 @@ import {
   FaCheckCircle,
 } from "react-icons/fa";
 import { motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { useServerTime } from "@/hooks/useServerTime";
+import RegistrationModal from "@/components/registration/RegistrationModal";
+import { registerUser } from "@/redux/features/publicChallenge/publicChallengeSlice";
+import { useRouter } from "next/navigation";
+
 
 const ActiveChallenges = () => {
   const dispatch = useDispatch();
-  const { challenges, loading, error } = useSelector((state) => ({
+  const { challenges, loading, error, registerLoading } = useSelector((state) => ({
     challenges: state.publicChallenge.challenges,
     loading: state.publicChallenge.loading.challenges,
     error: state.publicChallenge.error,
+    registerLoading: state.publicChallenge.loading.register,
   }));
+
+  const router = useRouter();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedChallenge, setSelectedChallenge] = useState(null);
+
+  const openRegistration = (challenge) => {
+    setSelectedChallenge(challenge);
+    setIsModalOpen(true);
+  };
+
+  const closeRegistration = () => {
+    setIsModalOpen(false);
+    setSelectedChallenge(null);
+  };
+
+  const handleRegistrationSubmit = async (formData) => {
+    if (!selectedChallenge) return;
+
+    const result = await dispatch(registerUser({
+      ...formData,
+      challenge_id: selectedChallenge.id
+    }));
+
+    if (result.meta.requestStatus === 'fulfilled') {
+      closeRegistration();
+      // If challenge is ongoing, redirect to interface immediately
+      const status = getChallengeStatus(selectedChallenge);
+      if (status.text === "Ongoing") {
+        router.push(`/challenges/interface?id=${selectedChallenge.id}`);
+      } else {
+        // Just refresh the list to show registered status
+        dispatch(fetchChallenges());
+      }
+    }
+  };
+
 
   useEffect(() => {
     dispatch(fetchChallenges());
@@ -258,24 +300,34 @@ const ActiveChallenges = () => {
                       {/* Action Buttons */}
                       <div className="flex gap-2">
                         {status.text === "Ongoing" && (
-                          <Link
-                            href={`/challenges/interface?id=${challenge.id}`}
-                            className="flex-1 px-4 py-3 bg-gray-900 text-white text-center rounded-lg hover:bg-gray-800 transition-all font-semibold text-sm flex items-center justify-center gap-2 group/btn"
-                          >
-                            Participate
-                            <FaArrowRight className="text-xs group-hover/btn:translate-x-1 transition-transform" />
-                          </Link>
+                          challenge.is_registered ? (
+                            <Link
+                              href={`/challenges/interface?id=${challenge.id}`}
+                              className="flex-1 px-4 py-3 bg-gray-900 text-white text-center rounded-lg hover:bg-gray-800 transition-all font-semibold text-sm flex items-center justify-center gap-2 group/btn"
+                            >
+                              Participate
+                              <FaArrowRight className="text-xs group-hover/btn:translate-x-1 transition-transform" />
+                            </Link>
+                          ) : (
+                            <button
+                              onClick={() => openRegistration(challenge)}
+                              className="flex-1 px-4 py-3 bg-gray-900 text-white text-center rounded-lg hover:bg-gray-800 transition-all font-semibold text-sm flex items-center justify-center gap-2 group/btn shadow-md hover:shadow-lg"
+                            >
+                              Participate
+                              <FaArrowRight className="text-xs group-hover/btn:translate-x-1 transition-transform" />
+                            </button>
+                          )
                         )}
                         {status.text === "Registration Open" &&
                           (challenge.challenge_type === "PUBLIC" ||
                             challenge.challenge_type === "COLLEGE_STUDENTS") &&
                           !challenge.is_registered && (
-                            <Link
-                              href={`/challenges/register?id=${challenge.id}`}
+                            <button
+                              onClick={() => openRegistration(challenge)}
                               className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-600 to-red-600 text-white text-center rounded-lg hover:from-orange-700 hover:to-red-700 transition-all font-semibold text-sm shadow-md hover:shadow-lg"
                             >
                               Register
-                            </Link>
+                            </button>
                           )}
                       </div>
                     </div>
@@ -286,7 +338,16 @@ const ActiveChallenges = () => {
           </motion.div>
         )}
       </div>
-    </section>
+
+
+      <RegistrationModal
+        isOpen={isModalOpen}
+        onClose={closeRegistration}
+        onSubmit={handleRegistrationSubmit}
+        loading={registerLoading}
+        challengeTitle={selectedChallenge?.title}
+      />
+    </section >
   );
 };
 
