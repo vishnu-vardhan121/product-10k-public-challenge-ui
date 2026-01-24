@@ -10,8 +10,7 @@ const Footer = () => {
   const quickLinks = [
     { text: 'About us', link: 'https://www.10000coders.in/about' },
     { text: 'Privacy Policy', link: 'https://www.10000coders.in/privacy_policy' },
-    { text: 'Terms and Conditions', link: 'https://www.10000coders.in/terms_and_conditions' },
-    { text: 'Settings', link: '/settings' },
+    { text: 'Terms and Conditions', link: 'https://www.10000coders.in/terms_and_conditions' }
   ];
 
   const socialMedia = [
