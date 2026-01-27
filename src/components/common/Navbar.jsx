@@ -74,7 +74,7 @@ const Navbar = () => {
             >
               <Image
                 src="/logos/10k_logo_black.webp"
-                alt="10kCoders Logo"
+                alt="10000Coders Logo"
                 width={180}
                 height={60}
                 className={`w-auto transition-all duration-300 ${scrolled ? "h-10" : "h-14 md:h-16"

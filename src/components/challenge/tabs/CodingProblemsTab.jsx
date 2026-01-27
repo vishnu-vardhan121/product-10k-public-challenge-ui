@@ -696,7 +696,7 @@ export default function CodingProblemsTab({
           </div>
 
           <div className="flex justify-center">
-            <img src="/logos/10k_logo_white.webp" alt="10000 Coders" className="h-7 lg:h-8 xl:h-9 2xl:h-10 object-contain" />
+            <img src="/logos/10k_logo_white.webp" alt="10000Coders" className="h-7 lg:h-8 xl:h-9 2xl:h-10 object-contain" />
           </div>
 
           <div className="flex items-center justify-end gap-1.5 lg:gap-2 xl:gap-2 2xl:gap-2">

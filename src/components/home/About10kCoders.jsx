@@ -8,7 +8,7 @@ const About10kCoders = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            About 10kCoders
+            About 10000Coders
           </h2>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
             Empowering aspiring developers to achieve their dreams through quality education and real-world experience

@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "10kCoders Public Challenges",
+  title: "10000Coders Challenges",
   description: "Participate in coding challenges and compete with others",
   icons: {
     icon: "/favicon.ico",

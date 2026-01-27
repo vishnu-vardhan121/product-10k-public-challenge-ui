@@ -7,8 +7,6 @@ import {
 } from "@/redux/features/publicChallenge/publicChallengeSlice";
 import ChallengeTimer from "./ChallengeTimer";
 import { getNowMs, initTimeSync, syncServerTime } from '@/utils/timeSync';
-import RegistrationModal from "@/components/registration/RegistrationModal";
-import { registerUser } from "@/redux/features/publicChallenge/publicChallengeSlice";
 import { useRouter } from "next/navigation";
 
 
@@ -41,7 +39,6 @@ export default function ChallengeInterface({ challengeId }) {
   const dispatch = useDispatch();
   const [activeTab, setActiveTab] = useState("mcq"); // 'mcq' | 'coding'
   const [selectedProblemId, setSelectedProblemId] = useState(null);
-  const [showRegistration, setShowRegistration] = useState(false);
   const router = useRouter();
   const lastMCQFetchKeyRef = useRef(null);
   const lastProblemsFetchKeyRef = useRef(null);
@@ -88,16 +85,6 @@ export default function ChallengeInterface({ challengeId }) {
     const resyncInterval = setInterval(() => syncServerTime(), 5 * 60 * 1000);
     return () => clearInterval(resyncInterval);
   }, []);
-
-  useEffect(() => {
-    // Check if user is registered/logged in
-    // If not, show registration modal
-    if (!loading.checkRegistration && !userId && !registrationId) {
-      setShowRegistration(true);
-    } else {
-      setShowRegistration(false);
-    }
-  }, [userId, registrationId, loading.checkRegistration]);
 
   useEffect(() => {
     if (!challenge?.challenge_end_at) return;
@@ -193,9 +180,18 @@ export default function ChallengeInterface({ challengeId }) {
   const problemsCount = challenge?.problems_count || challenge?.problems?.length || codingProblems.length || 0;
 
   const tabs = [
-    { id: "mcq", label: "MCQ Questions", count: mcqCount },
-    { id: "coding", label: "Coding Problems", count: problemsCount },
+    ...(mcqCount > 0 ? [{ id: "mcq", label: "MCQ Questions", count: mcqCount }] : []),
+    ...(problemsCount > 0 ? [{ id: "coding", label: "Coding Problems", count: problemsCount }] : []),
   ];
+
+  // Auto-select tab based on availability
+  useEffect(() => {
+    if (mcqCount === 0 && problemsCount > 0 && activeTab !== "coding") {
+      setActiveTab("coding");
+    } else if (problemsCount === 0 && mcqCount > 0 && activeTab !== "mcq") {
+      setActiveTab("mcq");
+    }
+  }, [mcqCount, problemsCount, activeTab]);
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -232,14 +228,7 @@ export default function ChallengeInterface({ challengeId }) {
   };
 
   const handleRegistrationSubmit = async (formData) => {
-    const result = await dispatch(registerUser({
-      ...formData,
-      challenge_id: parseInt(challengeId)
-    }));
-
-    if (result.meta.requestStatus === 'fulfilled') {
-      setShowRegistration(false);
-    }
+    // No-op: registration is handled by the interface page
   };
 
   return (
@@ -286,7 +275,7 @@ export default function ChallengeInterface({ challengeId }) {
             <div className="mb-10">
               <img
                 src="/logos/10k_logo_black.webp"
-                alt="10000 Coders"
+                alt="10000Coders"
                 className="h-14 mx-auto object-contain opacity-80"
               />
             </div>
@@ -310,7 +299,7 @@ export default function ChallengeInterface({ challengeId }) {
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-8">
             {/* Logo */}
-            <img src="/logos/10k_logo_black.webp" alt="10000 Coders" className="h-12 object-contain" />
+            <img src="/logos/10k_logo_black.webp" alt="10000Coders" className="h-12 object-contain" />
             {/* Tabs */}
             <div className="flex items-center gap-1">
               {tabs.map((tab) => (
@@ -361,14 +350,6 @@ export default function ChallengeInterface({ challengeId }) {
       <div className="flex-1 overflow-hidden">
         {renderTabContent()}
       </div>
-
-      <RegistrationModal
-        isOpen={showRegistration}
-        onClose={() => router.push('/')} // Redirect to home if they close the modal without registering
-        onSubmit={handleRegistrationSubmit}
-        loading={loading.register}
-        challengeTitle={challenge?.title}
-      />
     </div>
   );
 }

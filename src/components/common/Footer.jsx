@@ -64,7 +64,7 @@ const Footer = () => {
             <div className="h-12 w-auto">
               <Image
                 src="/logos/10k_logo_white.webp"
-                alt="10kCoders Logo"
+                alt="10000Coders Logo"
                 width={150}
                 height={50}
                 className="h-12 w-auto"

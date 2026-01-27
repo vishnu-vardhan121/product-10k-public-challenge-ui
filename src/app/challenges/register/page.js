@@ -168,13 +168,15 @@ export default function RegisterPage() {
         setError(null);
         if (!formData.phone.trim()) {
             setError("Please enter your phone number to send OTP");
-            return;
+            return false;
         }
         const success = await sendOTP(formData.phone);
         if (success) {
             setOtpStep("otp");
+            return true;
         } else {
             setError(otpError || "Failed to send OTP. Please try again.");
+            return false;
         }
     };
 
@@ -184,7 +186,7 @@ export default function RegisterPage() {
 
         if (!code || code.length !== 6) {
             setError("Please enter a valid 6-digit OTP code");
-            return;
+            return false;
         }
 
         const success = await verifyOTP(code);
@@ -192,9 +194,10 @@ export default function RegisterPage() {
             setOtpStep("verified");
             setError(null);
             // Auto-advance to next step immediately
-
+            return true;
         } else {
             setError(otpError || "Invalid OTP. Please try again.");
+            return false;
         }
     };
 
@@ -225,9 +228,22 @@ export default function RegisterPage() {
             return;
         }
 
+        // Single primary CTA flow:
+        // 1) If phone not verified yet -> send OTP (or verify OTP if already sent)
+        // 2) After successful OTP verification -> continue registration
         if (!otpVerified) {
-            setError("Please verify your phone number with OTP before submitting");
-            return;
+            if (otpStep === "phone") {
+                await handleSendOTP();
+                return;
+            }
+            if (otpStep === "otp") {
+                const ok = await handleVerifyOTP(otpCode);
+                if (!ok) return;
+            } else {
+                setOtpStep("phone");
+                resetOtp();
+                return;
+            }
         }
 
         if (formatPhoneNumber(formData.phone) !== otpPhoneNumber) {
@@ -353,7 +369,7 @@ export default function RegisterPage() {
                             >
                                 <Image
                                     src="/logos/10k_logo_white.webp"
-                                    alt="10kCoders Logo"
+                                    alt="10000Coders Logo"
                                     width={240}
                                     height={80}
                                     className="h-16 w-auto object-contain"
@@ -486,7 +502,7 @@ export default function RegisterPage() {
                                         <div className="absolute -inset-4 bg-white/5 rounded-full blur-lg"></div>
                                         <Image
                                             src="/logos/10k_logo_white.webp"
-                                            alt="10kCoders"
+                                            alt="10000Coders"
                                             width={180}
                                             height={60}
                                             className="h-14 w-auto object-contain relative z-10"
@@ -611,34 +627,22 @@ export default function RegisterPage() {
                                             <label htmlFor="phone" className="block text-sm font-semibold text-gray-900 mb-2">
                                                 Phone Number <span className="text-red-500">*</span>
                                             </label>
-                                            <div className="flex gap-3">
-                                                <input
-                                                    type="tel"
-                                                    id="phone"
-                                                    name="phone"
-                                                    value={formData.phone}
-                                                    onChange={handleInputChange}
-                                                    required
-                                                    disabled={otpStep !== "phone"}
-                                                    className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all font-medium text-base text-gray-900 disabled:opacity-60"
-                                                    placeholder="9876543210"
-                                                />
-                                                {otpStep === "phone" && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={handleSendOTP}
-                                                        disabled={otpLoading || !formData.phone.trim()}
-                                                        className="px-6 py-3 bg-orange-600 text-white rounded-xl hover:bg-orange-700 font-semibold shadow-lg shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none whitespace-nowrap"
-                                                    >
-                                                        {otpLoading ? "..." : "Verify"}
-                                                    </button>
-                                                )}
-                                                {otpStep === "verified" && (
-                                                    <div className="px-4 py-3 bg-green-50 text-green-700 rounded-xl border border-green-200 font-bold flex items-center gap-2">
-                                                        <FaCheckCircle /> Verified
-                                                    </div>
-                                                )}
-                                            </div>
+                                            <input
+                                                type="tel"
+                                                id="phone"
+                                                name="phone"
+                                                value={formData.phone}
+                                                onChange={handleInputChange}
+                                                required
+                                                disabled={otpStep !== "phone"}
+                                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all font-medium text-base text-gray-900 disabled:opacity-60"
+                                                placeholder="9876543210"
+                                            />
+                                            {otpStep === "verified" && (
+                                                <div className="px-4 py-3 bg-green-50 text-green-700 rounded-xl border border-green-200 font-bold flex items-center gap-2">
+                                                    <FaCheckCircle /> Verified
+                                                </div>
+                                            )}
                                         </div>
 
                                         {otpStep === "otp" && (
@@ -656,7 +660,7 @@ export default function RegisterPage() {
                                                     <OTPInput
                                                         value={otpCode}
                                                         onChange={setOtpCode}
-                                                        onComplete={handleVerifyOTP}
+                                                        onComplete={setOtpCode}
                                                     />
                                                 </div>
 
@@ -697,14 +701,6 @@ export default function RegisterPage() {
                                                     )}
                                                 </div>
 
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleVerifyOTP(otpCode)}
-                                                    disabled={otpLoading || otpCode.length !== 6}
-                                                    className="w-full py-3 bg-gray-900 text-white rounded-xl hover:bg-black transition-all font-bold disabled:opacity-50"
-                                                >
-                                                    {otpLoading ? "Verifying..." : "Verify OTP"}
-                                                </button>
                                             </motion.div>
                                         )}
                                     </div>
@@ -776,8 +772,8 @@ export default function RegisterPage() {
                                     <div className="pt-8 mt-8 border-t border-gray-100">
                                         <button
                                             type="submit"
-                                            disabled={submitting || !otpVerified}
-                                            className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 ${otpVerified && !submitting
+                                            disabled={submitting || otpLoading || (otpStep === "otp" && !otpVerified && otpCode.length !== 6)}
+                                            className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 ${!submitting && !otpLoading
                                                 ? "bg-gradient-to-r from-orange-600 to-orange-500 text-white shadow-orange-500/25 hover:shadow-orange-500/40"
                                                 : "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
                                                 }`}
@@ -786,8 +782,10 @@ export default function RegisterPage() {
                                                 <span className="flex items-center justify-center gap-2">
                                                     <FaSpinner className="animate-spin" /> Processing...
                                                 </span>
+                                            ) : otpLoading ? (
+                                                "Please wait..."
                                             ) : (
-                                                "Register Now"
+                                                otpVerified ? "Register Now" : otpStep === "otp" ? "Verify & Register" : "Send OTP"
                                             )}
                                         </button>
                                     </div>

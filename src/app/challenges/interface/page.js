@@ -397,11 +397,12 @@ export default function ChallengeInterfacePage() {
         <div className="relative z-10 max-w-lg">
           <img
             src="/logos/10k_logo_white.webp"
-            alt="10000 Coders"
+            alt="10000Coders"
             className="h-16 mb-8"
           />
           <h1 className="text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">
-            Prove Your Skills.<br />
+            {challenge?.title || 'Challenge'}
+ Your Skills.<br />
             <span className="text-orange-500">Master the Code.</span>
           </h1>
           <p className="text-gray-300 text-lg leading-relaxed mb-8">
@@ -439,7 +440,7 @@ export default function ChallengeInterfacePage() {
           <div className="lg:hidden mb-8 sm:mb-12 flex justify-center">
             <img
               src="/logos/10k_logo_black.webp"
-              alt="10000 Coders"
+              alt="10000Coders"
               className="h-14 w-auto"
             />
           </div>
@@ -650,7 +651,7 @@ export default function ChallengeInterfacePage() {
 
           <div className="mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-gray-100 text-center">
             <p className="text-xs text-gray-400">
-              Protected by 10000 Coders Secure Login System.
+              Protected by 10000Coders Secure Login System.
             </p>
           </div>
         </div>
