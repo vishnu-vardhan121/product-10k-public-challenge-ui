@@ -41,9 +41,10 @@ const initialState = {
 // Async Thunks
 export const fetchChallenges = createAsyncThunk(
   'publicChallenge/fetchChallenges',
-  async (_, { rejectWithValue }) => {
+  async (params = {}, { rejectWithValue }) => {
     try {
-      const { challenges, serverTime } = await getChallenges();
+      const { search } = typeof params === 'string' ? { search: params } : (params || {});
+      const { challenges, serverTime } = await getChallenges({ search });
 
       // Calculate offset
       const serverDate = new Date(serverTime);
@@ -186,9 +187,9 @@ export const fetchMyScore = createAsyncThunk(
 
 export const fetchPublicChallengeDraft = createAsyncThunk(
   'publicChallenge/fetchDraft',
-  async ({ challengeId, problemId, userId, language }, { rejectWithValue }) => {
+  async ({ challengeId, problemId, userId, language, registrationId }, { rejectWithValue }) => {
     try {
-      const response = await getDraft(challengeId, problemId, userId, language);
+      const response = await getDraft(challengeId, problemId, userId, language, registrationId);
       return response?.data ? { ...response.data, problemId } : null;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch draft');
@@ -198,9 +199,9 @@ export const fetchPublicChallengeDraft = createAsyncThunk(
 
 export const savePublicChallengeDraft = createAsyncThunk(
   'publicChallenge/saveDraft',
-  async ({ challengeId, problemId, userId, language, sourceCode }, { rejectWithValue }) => {
+  async ({ challengeId, problemId, userId, language, sourceCode, registrationId }, { rejectWithValue }) => {
     try {
-      const response = await saveDraft(challengeId, problemId, userId, language, sourceCode);
+      const response = await saveDraft(challengeId, problemId, userId, language, sourceCode, registrationId);
       return response;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to save draft');
@@ -292,6 +293,7 @@ const publicChallengeSlice = createSlice({
       .addCase(fetchChallengeDetails.pending, (state) => {
         state.loading.challengeDetails = true;
         state.error = null;
+        state.currentChallenge = null;
       })
       .addCase(fetchChallengeDetails.fulfilled, (state, action) => {
         state.loading.challengeDetails = false;

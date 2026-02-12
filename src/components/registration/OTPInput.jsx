@@ -1,7 +1,7 @@
 "use client";
 import React, { useRef, useEffect, useState } from "react";
 
-const OTPInput = ({ value, onChange, onComplete, disabled = false, error = null }) => {
+const OTPInput = ({ value, onChange, onComplete, disabled = false, error = null, onClearError = null }) => {
   const [otp, setOtp] = useState(Array(6).fill(""));
   const inputRefs = useRef([]);
 
@@ -18,6 +18,11 @@ const OTPInput = ({ value, onChange, onComplete, disabled = false, error = null 
     // Only allow digits
     if (newValue && !/^\d$/.test(newValue)) {
       return;
+    }
+
+    // Clear error when user starts typing
+    if (error && onClearError) {
+      onClearError();
     }
 
     const newOtp = [...otp];
@@ -54,6 +59,11 @@ const OTPInput = ({ value, onChange, onComplete, disabled = false, error = null 
     const digits = pastedData.replace(/\D/g, "").slice(0, 6);
     
     if (digits.length > 0) {
+      // Clear error when user pastes content
+      if (error && onClearError) {
+        onClearError();
+      }
+
       const newOtp = [...otp];
       digits.split("").forEach((digit, i) => {
         if (i < 6) {
@@ -99,9 +109,6 @@ const OTPInput = ({ value, onChange, onComplete, disabled = false, error = null 
           />
         ))}
       </div>
-      {error && (
-        <p className="text-sm text-red-600 text-center mt-2">{error}</p>
-      )}
     </div>
   );
 };

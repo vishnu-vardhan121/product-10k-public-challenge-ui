@@ -1,26 +1,22 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import Link from "next/link";
 import { fetchChallenges } from "@/redux/features/publicChallenge/publicChallengeSlice";
+import { debounce } from "@/utils/debounce";
 import {
   FaSearch,
-  FaFilter,
   FaCode,
   FaCalendarAlt,
   FaClock,
   FaUsers,
   FaArrowRight,
-  FaTrophy,
   FaCheckCircle,
-  FaRocket,
-  FaHourglassStart,
-  FaHistory,
-  FaQuestionCircle
 } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import { useServerTime } from "@/hooks/useServerTime";
 import CountdownTimer from "@/components/CountdownTimer";
+import { getDisplayParticipantCount, getParticipantLabel } from "@/shared/config";
 
 export default function ChallengesPage() {
   const dispatch = useDispatch();
@@ -32,13 +28,37 @@ export default function ChallengesPage() {
   const serverTime = useServerTime();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("all");
+  const isInitialMount = useRef(true);
 
+  // Initial load
   useEffect(() => {
     dispatch(fetchChallenges());
   }, [dispatch]);
 
+  // Debounced search: fetch from API when user stops typing
+  const debouncedFetch = useMemo(
+    () =>
+      debounce((q) => {
+        const search = (q || "").trim();
+        dispatch(fetchChallenges({ search: search || undefined }));
+      }, 400),
+    [dispatch]
+  );
+
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    debouncedFetch(searchQuery);
+  }, [searchQuery, debouncedFetch]);
+
   const handleRetry = () => {
+    dispatch(fetchChallenges({ search: searchQuery.trim() || undefined }));
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
     dispatch(fetchChallenges());
   };
 
@@ -128,33 +148,8 @@ export default function ChallengesPage() {
     };
   };
 
-  // Filter challenges - Show only PUBLIC, NON-ARCHIVED challenges
-  const filteredChallenges = challenges.filter((challenge) => {
-    // Basic search filtering
-    const matchesSearch =
-      challenge.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      challenge.description?.toLowerCase().includes(searchQuery.toLowerCase());
-
-    // Strict filtering: Only PUBLIC and (Registration Open OR Ongoing)
-    const now = new Date();
-    const regStart = new Date(challenge.registration_start_at);
-    const regEnd = new Date(challenge.registration_end_at);
-    const challengeEnd = challenge.challenge_end_at ? new Date(challenge.challenge_end_at) : null;
-
-    // Check if registration is currently open
-    const isRegistrationOpen = now >= regStart && now <= regEnd;
-
-    // Check if challenge is active (ongoing) - allowing late joins or just visibility
-    const isOngoing = challengeEnd ? now <= challengeEnd : false;
-
-    // Check type is PUBLIC (not PLACEMENT/COLLEGE)
-    const isPublic = challenge.challenge_type === "PUBLIC";
-
-    // Optional: Also allow if it's explicitly status=REGISTRATION from backend
-    const isBackendActive = challenge.status === "REGISTRATION" || challenge.status === "ACTIVE";
-
-    return matchesSearch && isPublic && (isRegistrationOpen || isOngoing || isBackendActive);
-  });
+  // API returns filtered results; backend handles search. Display challenges as-is.
+  const displayChallenges = Array.isArray(challenges) ? challenges : [];
 
 
   const containerVariants = {
@@ -179,48 +174,48 @@ export default function ChallengesPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-50 pt-24 pb-16 relative overflow-hidden">
-      {/* Background Ambience (Light Mode) */}
-      <div className="absolute top-0 right-0 -mr-40 -mt-40 w-96 h-96 bg-orange-100 rounded-full blur-3xl pointer-events-none opacity-50"></div>
-      <div className="absolute bottom-0 left-0 -ml-40 -mb-40 w-96 h-96 bg-blue-100 rounded-full blur-3xl pointer-events-none opacity-50"></div>
+    <main className="min-h-screen bg-gray-50 pt-20 sm:pt-24 pb-12 sm:pb-16 relative overflow-hidden">
+      {/* Background Ambience */}
+      <div className="absolute top-0 right-0 w-64 h-64 sm:w-96 sm:h-96 -mr-20 sm:-mr-40 -mt-20 sm:-mt-40 bg-orange-100 rounded-full blur-3xl pointer-events-none opacity-40 sm:opacity-50" aria-hidden />
+      <div className="absolute bottom-0 left-0 w-64 h-64 sm:w-96 sm:h-96 -ml-20 sm:-ml-40 -mb-20 sm:-mb-40 bg-blue-100 rounded-full blur-3xl pointer-events-none opacity-40 sm:opacity-50" aria-hidden />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        {/* Header */}
+        {/* Top Section: Header + Search */}
         <motion.div
-          className="text-center mb-16"
-          initial={{ opacity: 0, y: -20 }}
+          className="mb-10 sm:mb-12 md:mb-14"
+          initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.4 }}
         >
-          <span className="text-orange-600 font-semibold tracking-wider uppercase text-sm mb-2 block">
-            Arena
-          </span>
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4 leading-tight">
-            Explore All <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-600 to-amber-600">Challenges</span>
-          </h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto font-light">
-            Push your limits with our curated coding competitions and win exciting rewards.
-          </p>
-        </motion.div>
+          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between lg:gap-8">
+            {/* Header */}
+            <div className="mb-6 lg:mb-0 lg:flex-1">
+              <span className="inline-block text-orange-600 font-semibold tracking-wider uppercase text-xs sm:text-sm mb-2">
+                Arena
+              </span>
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 leading-tight">
+                Explore All{" "}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-600 to-amber-600">
+                  Challenges
+                </span>
+              </h1>
+              <p className="mt-2 sm:mt-3 text-sm sm:text-base lg:text-lg text-gray-600 max-w-xl font-light">
+                Push your limits with our curated coding competitions and win exciting rewards.
+              </p>
+            </div>
 
-        {/* Search Bar (Light) */}
-        <motion.div
-          className="mb-12 max-w-2xl mx-auto"
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-        >
-          <div className="relative group">
-            <div className="absolute inset-0 bg-gradient-to-r from-orange-500/10 to-blue-500/10 rounded-xl blur-md group-hover:blur-lg transition-all opacity-50"></div>
-            <div className="relative flex items-center bg-white border border-gray-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-orange-500/20 focus-within:border-orange-500 transition-all shadow-sm">
-              <FaSearch className="ml-4 text-gray-400 text-lg group-focus-within:text-orange-500 transition-colors" />
-              <input
-                type="text"
-                placeholder="Search by title or technology..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-4 pr-4 py-4 bg-transparent text-gray-900 placeholder-gray-400 focus:outline-none text-base"
-              />
+            {/* Search Bar */}
+            <div className="w-full lg:max-w-md lg:shrink-0">
+              <div className="relative">
+                <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-base sm:text-lg shrink-0 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Search challenges..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-11 sm:pl-12 pr-4 py-3 sm:py-3.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 text-sm sm:text-base transition-all shadow-sm"
+                />
+              </div>
             </div>
           </div>
         </motion.div>
@@ -248,28 +243,49 @@ export default function ChallengesPage() {
               Try Again
             </button>
           </motion.div>
-        ) : filteredChallenges.length === 0 ? (
+        ) : displayChallenges.length === 0 ? (
           <motion.div
-            className="bg-white border border-gray-200 rounded-2xl p-16 text-center max-w-2xl mx-auto shadow-sm"
+            className="bg-white border border-gray-200 rounded-2xl p-12 sm:p-16 text-center max-w-2xl mx-auto shadow-sm"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
           >
-            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <FaClock className="text-gray-400 text-3xl" />
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">No Challenges Active</h3>
-            <p className="text-gray-500">
-              Challenge timings will be announced soon. Stay tuned!
-            </p>
+            {searchQuery.trim() ? (
+              <>
+                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <FaSearch className="text-gray-400 text-2xl sm:text-3xl" />
+                </div>
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">No challenges match your search</h3>
+                <p className="text-gray-500 mb-6">
+                  Try different keywords or clear the search to see all challenges.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleClearSearch}
+                  className="px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-xl transition-colors"
+                >
+                  Clear search
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <FaClock className="text-gray-400 text-2xl sm:text-3xl" />
+                </div>
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">No Challenges Active</h3>
+                <p className="text-gray-500">
+                  Challenge timings will be announced soon. Stay tuned!
+                </p>
+              </>
+            )}
           </motion.div>
         ) : (
           <motion.div
-            className="grid grid-cols-1 gap-6"
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
             variants={containerVariants}
             initial="hidden"
             animate="visible"
           >
-            {filteredChallenges.map((challenge) => {
+            {displayChallenges.map((challenge) => {
               const status = getChallengeStatus(challenge);
               const StatusIcon = status.icon;
 
@@ -277,102 +293,69 @@ export default function ChallengesPage() {
                 <motion.div
                   key={challenge.id}
                   variants={cardVariants}
-                  className="group relative bg-white border border-gray-200 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
+                  className="group relative bg-white border border-gray-200 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-orange-200"
                 >
-                  <div className="p-6 md:p-8 flex flex-col md:flex-row gap-8">
-                    {/* Left: Icon/Image Placeholder */}
-                    <div className="hidden md:flex flex-shrink-0 w-24 h-24 bg-gray-50 rounded-2xl items-center justify-center border border-gray-100">
-                      <FaCode className="text-3xl text-gray-400 group-hover:text-orange-500 transition-colors" />
-                    </div>
-
-                    {/* Middle: Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4">
-                        <div>
-                          <h3 className="text-2xl font-bold text-gray-900 mb-2 group-hover:text-orange-600 transition-colors truncate">
-                            {challenge.title}
-                          </h3>
-                          <div className="flex items-center gap-3">
-                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase border ${status.color}`}>
-                              <StatusIcon className="text-xs" />
-                              {status.text}
-                            </span>
-
-                            {/* NEW: Countdown Timer */}
-                            {status.target_time && status.timer_label && (
-                              <div className="flex items-center gap-2 text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full border border-gray-200">
-                                <span>{status.timer_label}:</span>
-                                <span className="text-orange-600">
-                                  <CountdownTimer targetDate={status.target_time} />
-                                </span>
-                              </div>
-                            )}
-                          </div>
+                  <div className="p-6 flex flex-col h-full">
+                    {/* Status badge + Countdown */}
+                    <div className="flex flex-wrap items-center gap-2 mb-4">
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold tracking-wide uppercase border ${status.color}`}>
+                        <StatusIcon className="text-xs" />
+                        {status.text}
+                      </span>
+                      {status.target_time && status.timer_label && (
+                        <div className="text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                          <CountdownTimer targetDate={status.target_time} />
                         </div>
-                      </div>
-
-                      {challenge.description && (
-                        <p className="text-gray-600 text-sm leading-relaxed mb-6 line-clamp-2">
-                          {challenge.description}
-                        </p>
                       )}
-
-                      {/* Stats Grid */}
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
-                        <div className="flex items-center gap-3 bg-gray-50 rounded-lg p-3 border border-gray-100">
-                          <FaQuestionCircle className="text-orange-500" />
-                          <div>
-                            <div className="text-gray-900 font-bold">{challenge.mcq_questions_count || 0}</div>
-                            <div className="text-[10px] text-gray-500 uppercase tracking-wider">MCQs</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3 bg-gray-50 rounded-lg p-3 border border-gray-100">
-                          <FaCode className="text-blue-500" />
-                          <div>
-                            <div className="text-gray-900 font-bold">{challenge.problems_count || 0}</div>
-                            <div className="text-[10px] text-gray-500 uppercase tracking-wider">Problems</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3 bg-gray-50 rounded-lg p-3 border border-gray-100">
-                          <FaUsers className="text-green-500" />
-                          <div>
-                            <div className="text-gray-900 font-bold">{challenge.registration_count || 0}</div>
-                            <div className="text-[10px] text-gray-500 uppercase tracking-wider">Joiners</div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Dates / Messaging */}
-                      <div className="flex flex-wrap items-center gap-6 text-sm text-gray-500 font-medium">
-                        {/* If Upcoming, show Starts On */}
-                        {status.text === "Upcoming" ? (
-                          <div className="flex items-center gap-2 text-blue-600 bg-blue-50 px-3 py-1 rounded-md">
-                            <FaClock />
-                            <span>Challenge starts on: <span className="font-bold">{formatDate(challenge.challenge_start_at)}</span></span>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="flex items-center gap-2">
-                              <FaCalendarAlt className="text-gray-400" />
-                              <span>Reg: <span className="text-gray-700">{formatDate(challenge.registration_start_at)} - {formatDate(challenge.registration_end_at)}</span></span>
-                            </div>
-                            {challenge.challenge_start_at && (
-                              <div className="flex items-center gap-2">
-                                <FaClock className="text-gray-400" />
-                                <span>Event: <span className="text-gray-700">{formatDate(challenge.challenge_start_at)} - {formatDate(challenge.challenge_end_at)}</span></span>
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
                     </div>
 
-                    {/* Right: Action */}
-                    <div className="flex flex-col gap-3 justify-center min-w-[140px]">
+                    {/* Title */}
+                    <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-orange-600 transition-colors line-clamp-2">
+                      {challenge.title}
+                    </h3>
+
+                    {/* Description */}
+                    {challenge.description && (
+                      <p className="text-gray-600 text-sm leading-relaxed mb-4 line-clamp-3 flex-1">
+                        {challenge.description}
+                      </p>
+                    )}
+
+                    {/* Dates */}
+                    <div className="space-y-2 mb-6 text-sm text-gray-500">
+                      {status.text === "Upcoming" ? (
+                        <div className="flex items-center gap-2 text-blue-600">
+                          <FaClock className="shrink-0" />
+                          <span>Starts {formatDate(challenge.challenge_start_at)}</span>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <FaCalendarAlt className="shrink-0 text-gray-400" />
+                            <span>Reg: {formatDate(challenge.registration_start_at)} – {formatDate(challenge.registration_end_at)}</span>
+                          </div>
+                          {challenge.challenge_start_at && (
+                            <div className="flex items-center gap-2">
+                              <FaClock className="shrink-0 text-gray-400" />
+                              <span>{formatDate(challenge.challenge_start_at)} – {formatDate(challenge.challenge_end_at)}</span>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    {/* Joiners pill (social proof only) */}
+                    <div className="flex items-center gap-2 text-sm text-gray-500 mb-5">
+                      <FaUsers className="text-orange-500" />
+                      <span><span className="font-semibold text-gray-700">{getDisplayParticipantCount(challenge.registration_count)}</span> {getParticipantLabel(status.key)}</span>
+                    </div>
+
+                    {/* CTA */}
+                    <div className="mt-auto">
                       {status.key === "ONGOING" && (
                         <Link
                           href={`/challenges/interface?id=${challenge.id}`}
-                          className="w-full px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-center rounded-xl hover:shadow-lg hover:shadow-green-500/20 transition-all font-bold text-sm flex items-center justify-center gap-2"
+                          className="flex w-full px-4 py-3 bg-green-600 hover:bg-green-700 text-white text-center rounded-xl transition-all font-bold text-sm items-center justify-center gap-2"
                         >
                           Participate
                           <FaArrowRight className="text-xs" />
@@ -382,23 +365,23 @@ export default function ChallengesPage() {
                       {status.key === "REGISTRATION_OPEN" && (
                         <Link
                           href={challenge.slug ? `/challenges/register?slug=${challenge.slug}` : `/challenges/register?id=${challenge.id}`}
-                          className="w-full px-6 py-3 bg-gradient-to-r from-orange-600 to-red-600 text-white text-center rounded-xl hover:shadow-lg hover:shadow-orange-500/20 transition-all font-bold text-sm flex items-center justify-center gap-2 group/btn"
+                          className="flex w-full px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white text-center rounded-xl transition-all font-bold text-sm items-center justify-center gap-2 group/btn"
                         >
-                          <span>Register</span>
-                          <FaArrowRight className="w-3 h-3 group-hover/btn:translate-x-1 transition-transform" />
+                          Register
+                          <FaArrowRight className="w-3 group-hover/btn:translate-x-1 transition-transform" />
                         </Link>
                       )}
 
                       {status.key === "UPCOMING" && (
-                        <button disabled className="w-full px-6 py-3 bg-blue-50 text-blue-500 border border-blue-100 rounded-xl font-bold text-sm cursor-not-allowed">
+                        <div className="w-full px-4 py-3 bg-gray-100 text-gray-500 text-center rounded-xl font-bold text-sm cursor-not-allowed">
                           Coming Soon
-                        </button>
+                        </div>
                       )}
 
                       {status.key === "ENDED" && (
-                        <button disabled className="w-full px-6 py-3 bg-gray-100 text-gray-400 rounded-xl font-medium text-sm cursor-not-allowed border border-gray-200">
+                        <div className="w-full px-4 py-3 bg-gray-100 text-gray-400 text-center rounded-xl font-medium text-sm cursor-not-allowed">
                           Ended
-                        </button>
+                        </div>
                       )}
                     </div>
                   </div>

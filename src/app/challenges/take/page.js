@@ -77,8 +77,8 @@ export default function ChallengeTakePage() {
       setError("Please enter your phone number to send OTP");
       return;
     }
-    const success = await sendOTP(phone);
-    if (success) {
+    const result = await sendOTP(phone);
+    if (result?.success) {
       setOtpStep("otp");
     } else {
       setError(otpError || "Failed to send OTP. Please try again.");

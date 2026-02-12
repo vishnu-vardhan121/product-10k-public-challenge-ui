@@ -5,9 +5,18 @@ const API_BASE = '/public-challenges';
 
 /**
  * Get list of all challenges
+ * @param {Object} [params]
+ * @param {string} [params.search] - Search term to filter by title, description, or slug
  */
-export const getChallenges = async () => {
-  const response = await axios.get(`${API_BASE}/challenges/`);
+export const getChallenges = async (params = {}) => {
+  const { search } = params;
+  const queryParams = {};
+  if (search && String(search).trim()) {
+    queryParams.search = String(search).trim();
+  }
+  const response = await axios.get(`${API_BASE}/challenges/`, {
+    params: Object.keys(queryParams).length ? queryParams : undefined
+  });
   return {
     challenges: response.data,
     serverTime: response.headers['date'] || new Date().toISOString()
@@ -191,15 +200,20 @@ export const getMyScore = async (challengeId, userId, registrationId) => {
  * @param {number} challengeId - Challenge ID
  * @param {number} problemId - Problem ID
  * @param {number} userId - User ID
+ * @param {number} [registrationId] - Registration ID (required for AUTO problem selection mode)
  * @param {string} language - Programming language
  * @param {string} sourceCode - Source code
  */
-export const saveDraft = async (challengeId, problemId, userId, language, sourceCode) => {
-  const response = await axios.post(`${API_BASE}/challenges/${challengeId}/problems/${problemId}/draft/`, {
+export const saveDraft = async (challengeId, problemId, userId, language, sourceCode, registrationId = null) => {
+  const body = {
     user_id: userId,
     language,
     source_code: sourceCode
-  });
+  };
+  if (registrationId != null) {
+    body.registration_id = registrationId;
+  }
+  const response = await axios.post(`${API_BASE}/challenges/${challengeId}/problems/${problemId}/draft/`, body);
   return response.data;
 };
 
@@ -208,13 +222,19 @@ export const saveDraft = async (challengeId, problemId, userId, language, source
  * @param {number} challengeId - Challenge ID
  * @param {number} problemId - Problem ID
  * @param {number} userId - User ID
+ * @param {string} language - Programming language
+ * @param {number} [registrationId] - Registration ID (required for AUTO problem selection mode)
  */
-export const getDraft = async (challengeId, problemId, userId, language) => {
+export const getDraft = async (challengeId, problemId, userId, language, registrationId = null) => {
+  const params = {
+    user_id: userId,
+    language: language
+  };
+  if (registrationId != null) {
+    params.registration_id = registrationId;
+  }
   const response = await axios.get(`${API_BASE}/challenges/${challengeId}/problems/${problemId}/draft/`, {
-    params: {
-      user_id: userId,
-      language: language
-    }
+    params
   });
   return response.data;
 };

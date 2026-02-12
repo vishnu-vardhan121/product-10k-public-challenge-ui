@@ -1,47 +1,39 @@
-// Phone number utilities for validation and formatting
+// Phone number utilities for validation and formatting (India +91 only)
+
+const INDIAN_COUNTRY_CODE = '+91';
+const INDIAN_MOBILE_LENGTH = 10;
 
 /**
- * Validate phone number format
+ * Validate Indian mobile number (10 digits only).
+ * Accepts 10 digits or 91 followed by 10 digits.
  * @param {string} phone - Phone number to validate
- * @returns {boolean} - True if valid
+ * @returns {boolean} - True if valid Indian mobile
  */
-export const validatePhoneNumber = (phone) => {
+export const validateIndianPhoneNumber = (phone) => {
   if (!phone) return false;
-  
-  // Remove all non-digit characters except +
-  let cleaned = phone.replace(/[^\d+]/g, '');
-  
-  // Must start with + for E.164 format
-  if (!cleaned.startsWith('+')) {
-    // If no +, check if it's a valid length for adding country code
-    const digitsOnly = cleaned.replace(/\D/g, '');
-    if (digitsOnly.length < 10 || digitsOnly.length > 15) {
-      return false;
-    }
-    // Will be formatted with country code, so it's valid
-    return true;
-  }
-  
-  // Remove + for counting
-  cleaned = cleaned.substring(1);
-  
-  // E.164 format: + followed by 1-15 digits
-  // Minimum: country code (1-3 digits) + phone number (at least 7 digits) = 8 digits minimum
-  // But for India (+91), we need 10 digits after country code
-  if (cleaned.length < 10 || cleaned.length > 15) {
-    return false;
-  }
-  
-  return true;
+  const digitsOnly = String(phone).replace(/\D/g, '');
+  if (digitsOnly.length === 10) return true;
+  if (digitsOnly.length === 12 && digitsOnly.startsWith('91')) return true;
+  return false;
 };
 
 /**
- * Format phone number to E.164 format (+[country code][number])
+ * Validate phone number format (Indian mobile: 10 digits).
+ * @param {string} phone - Phone number to validate (after formatting with +91)
+ * @returns {boolean} - True if valid
+ */
+export const validatePhoneNumber = (phone) => {
+  return validateIndianPhoneNumber(phone);
+};
+
+/**
+ * Format phone number to E.164 format (+91 for India).
+ * Expects 10 digits or 91+10 digits; returns +91 followed by 10 digits.
  * @param {string} phone - Phone number to format
  * @param {string} countryCode - Country code (default: +91 for India)
- * @returns {string} - Formatted phone number in E.164 format
+ * @returns {string} - Formatted phone number e.g. +919876543210
  */
-export const formatPhoneNumber = (phone, countryCode = '+91') => {
+export const formatPhoneNumber = (phone, countryCode = INDIAN_COUNTRY_CODE) => {
   if (!phone) return '';
   
   // Convert to string if not already
@@ -181,5 +173,39 @@ export const extractCountryCode = (phone) => {
 export const cleanPhoneNumber = (phone) => {
   if (!phone) return '';
   return phone.replace(/\D/g, '');
+};
+
+/**
+ * Restrict input to Indian mobile: digits only, max 10 digits.
+ * Use in onChange to keep field to 10-digit Indian number.
+ * @param {string} value - Raw input value
+ * @returns {string} - At most 10 digits
+ */
+export const restrictToIndianMobile = (value) => {
+  const digits = String(value || '').replace(/\D/g, '');
+  return digits.slice(0, INDIAN_MOBILE_LENGTH);
+};
+
+/**
+ * Format 10-digit phone for input display: "91 xxxxx xxxxx"
+ * @param {string} digits - Up to 10 digits (stored value)
+ * @returns {string} - Display string e.g. "91 98765 43210"
+ */
+export const formatPhoneInputDisplay = (digits) => {
+  if (!digits) return '91 ';
+  const d = String(digits).replace(/\D/g, '').slice(0, INDIAN_MOBILE_LENGTH);
+  if (d.length <= 5) return `91 ${d}`;
+  return `91 ${d.slice(0, 5)} ${d.slice(5)}`;
+};
+
+/**
+ * Parse input value (e.g. "91 98765 43210") to stored 10 digits only.
+ * @param {string} value - Raw input value from the field
+ * @returns {string} - At most 10 digits (without 91)
+ */
+export const parsePhoneInputValue = (value) => {
+  let digits = String(value || '').replace(/\D/g, '');
+  if (digits.startsWith('91')) digits = digits.slice(2);
+  return digits.slice(0, INDIAN_MOBILE_LENGTH);
 };
 

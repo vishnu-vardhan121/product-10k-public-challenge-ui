@@ -1,238 +1,169 @@
 "use client";
 import { useState, useCallback, useEffect, useRef } from "react";
-import { signInWithPhoneNumber, ConfirmationResult } from "firebase/auth";
-import { auth, setupRecaptchaVerifier, clearRecaptchaVerifier } from "@/config/firebase";
+import { sendOtp, verifyOtp } from "@/services/otpApi";
 import { formatPhoneNumber, validatePhoneNumber } from "@/services/phoneUtils";
 
-const RESEND_COOLDOWN = 60; // 60 seconds cooldown for resend
+const RESEND_COOLDOWN = 60;
 
-export const usePhoneOTP = () => {
+/** Normalize phone to digits-only for backend (matches backend normalize_mobile). */
+function toDigitsOnly(phone) {
+  if (!phone) return "";
+  return String(phone).trim().replace(/\D/g, "");
+}
+
+/** Return 10-digit mobile for API (backend adds 91 for SMS; batch check matches 10-digit). */
+function toMobile10(phone) {
+  const digits = toDigitsOnly(phone);
+  if (digits.length === 12 && digits.startsWith("91")) return digits.slice(2);
+  return digits;
+}
+
+const BATCH_STUDENT_FILTER = "check_and_block_exists_in_all_batch";
+
+/**
+ * @param {{ blockBatchStudents?: boolean }} [options] - If true, send OTP will use filter to block 10000Coders batch students (show share modal instead).
+ */
+export const usePhoneOTP = (options = {}) => {
+  const { blockBatchStudents = false } = options;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [verificationId, setVerificationId] = useState(null);
+  const [lastErrorCode, setLastErrorCode] = useState(null);
   const [isVerified, setIsVerified] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [phoneNumber, setPhoneNumber] = useState("");
-  
-  const confirmationResultRef = useRef(null);
   const countdownIntervalRef = useRef(null);
 
-  // Cleanup countdown on unmount
   useEffect(() => {
     return () => {
-      if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current);
-      }
-      clearRecaptchaVerifier();
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     };
   }, []);
 
-  // Countdown timer
   useEffect(() => {
     if (countdown > 0) {
       countdownIntervalRef.current = setInterval(() => {
         setCountdown((prev) => {
           if (prev <= 1) {
-            clearInterval(countdownIntervalRef.current);
+            if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
             return 0;
           }
           return prev - 1;
         });
       }, 1000);
-    } else {
-      if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current);
-      }
+    } else if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
     }
-
     return () => {
-      if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current);
-      }
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     };
   }, [countdown]);
 
-  /**
-   * Send OTP to phone number
-   * @param {string} phone - Phone number in E.164 format
-   * @returns {Promise<boolean>} - True if OTP sent successfully
-   */
   const sendOTP = useCallback(async (phone) => {
     try {
       setLoading(true);
       setError(null);
       setIsVerified(false);
-      setVerificationId(null);
-      confirmationResultRef.current = null;
 
-      // IMPORTANT: Clear any existing reCAPTCHA first
-      clearRecaptchaVerifier();
-
-      // Trim and clean the input first
-      const trimmedPhone = phone ? String(phone).trim() : '';
-      
+      const trimmedPhone = phone ? String(phone).trim() : "";
       if (!trimmedPhone) {
-        throw new Error("Please enter your phone number");
+        setError("Please enter your phone number");
+        return false;
       }
-      
-      // Format phone number to E.164 first
+
       const formattedPhone = formatPhoneNumber(trimmedPhone);
-      
-      // Validate formatted phone number
-      if (!formattedPhone || formattedPhone.length === 0) {
-        throw new Error(`Please enter a valid phone number (minimum 10 digits). You entered: "${trimmedPhone}"`);
+      if (!formattedPhone || !validatePhoneNumber(formattedPhone)) {
+        setError("Please enter a valid 10-digit Indian mobile number.");
+        return false;
       }
-      
-      // Additional validation for E.164 format
-      if (!formattedPhone.startsWith('+')) {
-        throw new Error("Invalid phone number format. Please include country code.");
+
+      const digitsOnly = toDigitsOnly(formattedPhone);
+      if (digitsOnly.length !== 10 && digitsOnly.length !== 12) {
+        setError("Indian mobile number must be 10 digits.");
+        return false;
       }
-      
-      // Check minimum length (country code + 10 digits minimum)
-      // For India: +91 (2 digits) + 10 digits = 12 characters minimum
-      const digitsAfterPlus = formattedPhone.substring(1).replace(/\D/g, '');
-      if (digitsAfterPlus.length < 10) {
-        throw new Error(`Phone number is too short. Please enter at least 10 digits. Current: ${digitsAfterPlus.length} digits`);
-      }
-      
-      if (formattedPhone.length < 12) {
-        throw new Error(`Phone number is too short. Please enter a valid phone number. Current length: ${formattedPhone.length}`);
-      }
-      
+
       setPhoneNumber(formattedPhone);
 
-      // Setup reCAPTCHA verifier
-      const verifier = setupRecaptchaVerifier("recaptcha-container");
-      if (!verifier) {
-        throw new Error("Failed to initialize reCAPTCHA. Please refresh the page.");
+      const mobileForApi = toMobile10(formattedPhone);
+      const filters = blockBatchStudents ? [BATCH_STUDENT_FILTER] : undefined;
+      const { success, error: apiError, code } = await sendOtp(mobileForApi, { filters });
+      setLastErrorCode(code || null);
+      if (success) {
+        setCountdown(RESEND_COOLDOWN);
+        return { success: true };
       }
-
-      // Send OTP
-      const confirmation = await signInWithPhoneNumber(auth, formattedPhone, verifier);
-      
-      confirmationResultRef.current = confirmation;
-      setVerificationId(confirmation.verificationId);
-      setCountdown(RESEND_COOLDOWN);
-      
-      return true;
+      setError(apiError || "Failed to send OTP. Please try again.");
+      return { success: false, code: code || null };
     } catch (err) {
       console.error("Error sending OTP:", err);
-      
-      // Clear reCAPTCHA on error
-      clearRecaptchaVerifier();
-      
-      // Handle specific Firebase errors
-      let errorMessage = "Failed to send OTP. Please try again.";
-      
-      if (err.code === "auth/billing-not-enabled") {
-        errorMessage = "Phone authentication requires billing to be enabled in Firebase. Please contact administrator or use a test phone number for development.";
-      } else if (err.code === "auth/invalid-phone-number") {
-        errorMessage = "Invalid phone number format. Please check and try again.";
-      } else if (err.code === "auth/too-many-requests") {
-        errorMessage = "Too many requests. Please wait a few minutes and try again.";
-      } else if (err.code === "auth/quota-exceeded") {
-        errorMessage = "SMS quota exceeded. Please try again later.";
-      } else if (err.code === "auth/captcha-check-failed") {
-        errorMessage = "reCAPTCHA verification failed. Please refresh the page and try again.";
-      } else if (err.code === "auth/session-expired") {
-        errorMessage = "Session expired. Please try again.";
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-      
-      setError(errorMessage);
-      return false;
+      setError(err.message || "Failed to send OTP. Please try again.");
+      return { success: false, code: null };
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [blockBatchStudents]);
 
-  /**
-   * Verify OTP code
-   * @param {string} code - 6-digit OTP code
-   * @returns {Promise<boolean>} - True if OTP verified successfully
-   */
   const verifyOTP = useCallback(async (code) => {
     try {
       setLoading(true);
       setError(null);
 
-      if (!code || code.length !== 6) {
-        throw new Error("Please enter a valid 6-digit OTP code");
+      if (!code || String(code).trim().length !== 6) {
+        setError("Please enter a valid 6-digit OTP code");
+        return false;
       }
 
-      if (!confirmationResultRef.current) {
-        throw new Error("OTP session expired. Please request a new OTP.");
+      if (!phoneNumber) {
+        setError("OTP session expired. Please request a new OTP.");
+        return false;
       }
 
-      // Verify OTP
-      const result = await confirmationResultRef.current.confirm(code);
-      
-      if (result.user) {
+      const mobileForApi = toMobile10(phoneNumber);
+      const { success, error: apiError } = await verifyOtp(mobileForApi, String(code).trim());
+      if (success) {
         setIsVerified(true);
-        clearRecaptchaVerifier();
         return true;
       }
-      
+      setError(apiError || "Invalid OTP. Please try again.");
       return false;
     } catch (err) {
       console.error("Error verifying OTP:", err);
-      
-      let errorMessage = "Invalid OTP code. Please try again.";
-      
-      if (err.code === "auth/invalid-verification-code") {
-        errorMessage = "Invalid OTP code. Please check and try again.";
-      } else if (err.code === "auth/code-expired") {
-        errorMessage = "OTP code has expired. Please request a new one.";
-      } else if (err.code === "auth/session-expired") {
-        errorMessage = "OTP session expired. Please request a new OTP.";
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-      
-      setError(errorMessage);
+      setError(err.message || "Invalid OTP. Please try again.");
       return false;
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [phoneNumber]);
 
-  /**
-   * Resend OTP
-   * @returns {Promise<boolean>} - True if OTP resent successfully
-   */
   const resendOTP = useCallback(async () => {
     if (countdown > 0) {
       setError(`Please wait ${countdown} seconds before requesting a new OTP.`);
       return false;
     }
-
     if (!phoneNumber) {
       setError("Phone number is required to resend OTP.");
       return false;
     }
-
     return await sendOTP(phoneNumber);
   }, [phoneNumber, countdown, sendOTP]);
 
-  /**
-   * Reset OTP state
-   */
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
   const reset = useCallback(() => {
     setLoading(false);
     setError(null);
-    setVerificationId(null);
     setIsVerified(false);
     setCountdown(0);
     setPhoneNumber("");
-    confirmationResultRef.current = null;
-    clearRecaptchaVerifier();
   }, []);
 
   return {
     loading,
     error,
-    verificationId,
+    lastErrorCode,
+    verificationId: null,
     isVerified,
     countdown,
     phoneNumber,
@@ -240,6 +171,6 @@ export const usePhoneOTP = () => {
     verifyOTP,
     resendOTP,
     reset,
+    clearError,
   };
 };
-

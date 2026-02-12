@@ -20,8 +20,9 @@ import {
   FaPhone,
   FaLock,
 } from "react-icons/fa";
-import { formatPhoneNumber } from "@/services/phoneUtils";
+import { formatPhoneNumber, formatPhoneInputDisplay, parsePhoneInputValue } from "@/services/phoneUtils";
 import ChallengeInterface from "@/components/challenge/ChallengeInterface";
+import BatchStudentShareModal from "@/components/shared/BatchStudentShareModal";
 import {
   isVerifiedForChallenge,
   storeVerification,
@@ -65,6 +66,16 @@ export default function ChallengeInterfacePage() {
   const [pendingRegistrationData, setPendingRegistrationData] = useState(null);
   const [pendingAction, setPendingAction] = useState(null);
 
+  // UTM params from URL (for registration payload; preserved when redirected from register page)
+  const getUtmParams = () => ({
+    utm_src: searchParams.get("utm_source") || "organic",
+    utm_medium: searchParams.get("utm_medium") || "",
+    utm_term: searchParams.get("utm_term") || "",
+    utm_campaign: searchParams.get("utm_campaign") || "",
+  });
+
+  const [showBatchStudentModal, setShowBatchStudentModal] = useState(false);
+
   // OTP hook
   const {
     sendOTP,
@@ -72,10 +83,12 @@ export default function ChallengeInterfacePage() {
     resendOTP,
     loading: otpLoading,
     error: otpError,
+    lastErrorCode: otpErrorCode,
     isVerified,
     countdown,
     reset: resetOtp,
-  } = usePhoneOTP();
+    clearError: clearOtpError,
+  } = usePhoneOTP({ blockBatchStudents: true });
 
   // Check verification on mount
   useEffect(() => {
@@ -132,6 +145,7 @@ export default function ChallengeInterfacePage() {
                 name: userName,
                 phone: verifiedPhone,
                 challenge_id: parseInt(challengeId),
+                ...getUtmParams(),
               };
               dispatch(registerUser(regData))
                 .unwrap()
@@ -219,6 +233,7 @@ export default function ChallengeInterfacePage() {
         name: userName,
         phone: phone.trim(),
         challenge_id: parseInt(challengeId),
+        ...getUtmParams(),
       });
       setPendingAction("register_after_otp");
       setIsRegistered(false);
@@ -233,7 +248,7 @@ export default function ChallengeInterfacePage() {
   };
 
   const handlePhoneChange = (e) => {
-    setPhoneLocal(e.target.value);
+    setPhoneLocal(parsePhoneInputValue(e.target.value));
     setLocalError(null);
     dispatch(clearError());
     if (otpStep !== "phone") {
@@ -257,9 +272,16 @@ export default function ChallengeInterfacePage() {
       setLocalError("Please enter your phone number to send OTP");
       return;
     }
-    const success = await sendOTP(phone);
-    if (success) setOtpStep("otp");
-    else setLocalError(otpError || reduxError || "Failed to send OTP. Please try again.");
+    const result = await sendOTP(phone);
+    if (result?.success) {
+      setOtpStep("otp");
+      return;
+    }
+    if (result?.code === "already_in_a_batch") {
+      setShowBatchStudentModal(true);
+      return;
+    }
+    setLocalError(otpError || reduxError || "Failed to send OTP. Please try again.");
   };
 
   const handleVerifyOTP = async (code) => {
@@ -329,7 +351,8 @@ export default function ChallengeInterfacePage() {
       email: email.trim() || undefined,
       college_name: collegeName.trim() || undefined,
       phone: phone.trim(),
-      challenge_id: parseInt(challengeId)
+      challenge_id: parseInt(challengeId),
+      ...getUtmParams(),
     };
 
     // If OTP is already verified (e.g., stored verification), register immediately
@@ -383,6 +406,10 @@ export default function ChallengeInterfacePage() {
   // OTP / Login Screen
   return (
     <div className="min-h-svh lg:min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-white overflow-x-hidden">
+      <BatchStudentShareModal
+        open={showBatchStudentModal}
+        onClose={() => setShowBatchStudentModal(false)}
+      />
       {/* Left Panel - Immersive Visual */}
       <div className="relative hidden lg:flex flex-col justify-end p-12 lg:p-16 overflow-hidden bg-gray-900">
         <div className="absolute inset-0">
@@ -449,7 +476,7 @@ export default function ChallengeInterfacePage() {
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Welcome Back</h2>
             <p className="text-sm sm:text-base text-gray-600">
               {otpStep === 'otp'
-                ? `Enter the code sent to ${formatPhoneNumber(phone)}`
+                ? `Enter the code sent to +${formatPhoneInputDisplay(phone).trim()}`
                 : otpStep === 'register'
                 ? "Complete your registration to continue"
                 : "Verify your phone number to access the challenge."}
@@ -471,20 +498,24 @@ export default function ChallengeInterfacePage() {
             {otpStep === "phone" ? (
               <div className="animate-fadeIn">
                 <label htmlFor="phone" className="block text-sm font-semibold text-gray-900 mb-2">
-                  Phone Number
+                  Mobile Number (India only)
                 </label>
-                <div className="relative mb-6">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <FaPhone className="h-5 w-5 text-gray-400" />
-                  </div>
+                <p className="text-xs text-gray-500 mb-2">Indian registrations only. Enter 10-digit mobile number.</p>
+                <div className="flex rounded-xl border border-gray-200 bg-gray-50 overflow-hidden focus-within:ring-2 focus-within:ring-gray-900 focus-within:border-transparent mb-6">
+                  <span className="inline-flex items-center pl-4 pointer-events-none text-gray-500">
+                    <FaPhone className="h-5 w-5 mr-2" />
+                  </span>
                   <input
                     type="tel"
                     id="phone"
-                    value={phone}
+                    value={formatPhoneInputDisplay(phone)}
                     onChange={handlePhoneChange}
                     disabled={checkingRegistration}
-                    className="block w-full pl-11 pr-4 py-3 sm:py-3.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all outline-none disabled:bg-gray-100 disabled:text-gray-500 font-medium"
-                    placeholder="98765 43210"
+                    maxLength={14}
+                    inputMode="numeric"
+                    pattern="[0-9 ]*"
+                    className="flex-1 min-w-0 pr-4 py-3 sm:py-3.5 bg-transparent text-gray-900 font-medium outline-none placeholder:text-gray-400 disabled:bg-gray-100 disabled:text-gray-500"
+                    placeholder="91 98765 43210"
                     autoFocus
                   />
                 </div>
@@ -590,7 +621,17 @@ export default function ChallengeInterfacePage() {
                   <label className="block text-sm font-semibold text-gray-900 mb-3">
                     One-Time Password
                   </label>
-                  <OTPInput value={otpCode} onChange={setOtpCode} onComplete={handleVerifyOTP} />
+                  <OTPInput 
+                    value={otpCode} 
+                    onChange={setOtpCode} 
+                    onComplete={handleVerifyOTP}
+                    error={displayError}
+                    onClearError={() => {
+                      setLocalError(null);
+                      dispatch(clearError());
+                      clearOtpError();
+                    }}
+                  />
                 </div>
 
                 <button

@@ -19,7 +19,7 @@ import { useServerTime } from "@/hooks/useServerTime";
 import RegistrationModal from "@/components/registration/RegistrationModal";
 import { registerUser } from "@/redux/features/publicChallenge/publicChallengeSlice";
 import { useRouter } from "next/navigation";
-
+import { getDisplayParticipantCount, getParticipantLabel } from "@/shared/config";
 
 const ActiveChallenges = () => {
   const dispatch = useDispatch();
@@ -271,9 +271,9 @@ const ActiveChallenges = () => {
                         <div className="bg-orange-50 rounded-lg p-3 text-center">
                           <FaUsers className="text-orange-600 mx-auto mb-1 text-lg" />
                           <div className="text-lg font-bold text-gray-900">
-                            {challenge.registration_count || 0}
+                            {getDisplayParticipantCount(challenge.registration_count)}
                           </div>
-                          <div className="text-xs text-gray-600">Joined</div>
+                          <div className="text-xs text-gray-600">{getParticipantLabel(null, status.text)}</div>
                         </div>
                       </div>
 

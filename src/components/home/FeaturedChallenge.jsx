@@ -15,6 +15,7 @@ import {
 import { motion } from "framer-motion";
 import { useServerTime } from "@/hooks/useServerTime";
 import CountdownTimer from "../CountdownTimer";
+import { getDisplayParticipantCount, getParticipantLabel } from "@/shared/config";
 
 const FeaturedChallenge = () => {
     const dispatch = useDispatch();
@@ -182,7 +183,7 @@ const FeaturedChallenge = () => {
                                 </div>
                                 <div className="flex items-center gap-2 bg-gray-900/50 px-4 py-2 rounded-lg">
                                     <FaUsers className="text-blue-500" />
-                                    <span><span className="text-white mr-1">{featured.registration_count || 0}</span> Registered</span>
+                                    <span><span className="text-white mr-1">{getDisplayParticipantCount(featured.registration_count)}</span> {getParticipantLabel(featured.derivedStatus)}</span>
                                 </div>
                             </div>
 

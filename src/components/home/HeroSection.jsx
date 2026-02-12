@@ -59,17 +59,17 @@ const HeroSection = () => {
             transition={{ duration: 0.8, delay: 0.6 }}
           >
             <Link
-              href="#challenges"
+              href="/challenges"
               className="group inline-flex items-center justify-center bg-gradient-to-r from-orange-600 to-red-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:shadow-lg hover:shadow-orange-500/40 transition-all transform hover:-translate-y-1"
             >
               <FaRocket className="mr-2 group-hover:animate-pulse" />
               Explore Challenges
             </Link>
             <Link
-              href="#active-challenges"
+              href="#features"
               className="inline-flex items-center justify-center bg-white/10 backdrop-blur-md border border-white/20 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-white/20 transition-all"
             >
-              Start Coding
+              How it works
               <FaArrowRight className="ml-2" />
             </Link>
           </motion.div>

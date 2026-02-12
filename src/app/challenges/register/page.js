@@ -1,6 +1,6 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import React, { useState, useEffect, useRef } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import Link from "next/link";
 import Image from "next/image";
@@ -13,6 +13,8 @@ import {
     clearError,
 } from "@/redux/features/publicChallenge/publicChallengeSlice";
 import { usePhoneOTP } from "@/hooks/usePhoneOTP";
+import { getDisplayParticipantCount } from "@/shared/config";
+import BatchStudentShareModal from "@/components/shared/BatchStudentShareModal";
 
 import {
     FaSpinner,
@@ -34,11 +36,12 @@ import {
     FaInfoCircle,
     FaListAlt,
 } from "react-icons/fa";
-import { formatPhoneNumber } from "@/services/phoneUtils";
+import { formatPhoneNumber, formatPhoneInputDisplay, parsePhoneInputValue } from "@/services/phoneUtils";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function RegisterPage() {
     const searchParams = useSearchParams();
+    const router = useRouter();
     const challengeId = searchParams.get("id");
     const slug = searchParams.get("slug");
     const dispatch = useDispatch();
@@ -68,18 +71,22 @@ export default function RegisterPage() {
     const [otpStep, setOtpStep] = useState("phone");
 
     const [copied, setCopied] = useState(false);
+    const fetchKeyRef = useRef(null);
 
+    const [showBatchStudentModal, setShowBatchStudentModal] = useState(false);
     const {
         sendOTP,
         verifyOTP,
         resendOTP,
         loading: otpLoading,
         error: otpError,
+        lastErrorCode: otpErrorCode,
         isVerified: otpVerified,
         countdown,
         phoneNumber: otpPhoneNumber,
         reset: resetOtp,
-    } = usePhoneOTP();
+        clearError: clearOtpError,
+    } = usePhoneOTP({ blockBatchStudents: true });
 
     const [formData, setFormData] = useState({
         name: "",
@@ -96,14 +103,18 @@ export default function RegisterPage() {
     });
 
     useEffect(() => {
-        if (slug) {
-            dispatch(clearError());
-            dispatch(fetchChallengeBySlug(slug));
-        } else if (challengeId) {
-            dispatch(clearError());
-            dispatch(fetchChallengeDetails(challengeId));
-        } else {
+        const key = slug ? `slug:${slug}` : challengeId ? `id:${challengeId}` : null;
+        if (!key) {
             setError("Challenge ID or Slug is required");
+            return;
+        }
+        if (fetchKeyRef.current === key) return;
+        fetchKeyRef.current = key;
+        dispatch(clearError());
+        if (slug) {
+            dispatch(fetchChallengeBySlug(slug));
+        } else {
+            dispatch(fetchChallengeDetails(challengeId));
         }
     }, [challengeId, slug, dispatch]);
 
@@ -117,7 +128,7 @@ export default function RegisterPage() {
             return defaultValue;
         };
 
-        const utm_src = getSearchParam("utm_source");
+        const utm_src = getSearchParam("utm_source", "organic");
         const utm_medium = getSearchParam("utm_medium", "");
         const utm_term = getSearchParam("utm_term", "");
         const utm_campaign = getSearchParam("utm_campaign", "");
@@ -131,35 +142,62 @@ export default function RegisterPage() {
         }));
     }, []);
 
-    // Clear reCAPTCHA on mount and unmount to prevent "already rendered" errors
-    useEffect(() => {
-        import("@/config/firebase").then(({ clearRecaptchaVerifier }) => {
-            clearRecaptchaVerifier();
-        });
-
-        return () => {
-            import("@/config/firebase").then(({ clearRecaptchaVerifier }) => {
-                clearRecaptchaVerifier();
-            });
-        };
-    }, []);
-
     useEffect(() => {
         if (reduxError) {
             setError(reduxError);
         }
     }, [reduxError]);
 
+    // When challenge details are loaded: if registration has ended AND challenge is live, redirect to interface
+    useEffect(() => {
+        if (challengeLoading || !currentChallenge?.id) return;
+        // Only act on the challenge that matches this page (from API response for this id/slug)
+        const matchesPage =
+            (challengeId && String(currentChallenge.id) === String(challengeId)) ||
+            (slug && currentChallenge.slug === slug);
+        if (!matchesPage) return;
+
+        const regEnd = currentChallenge.registration_end_at ? new Date(currentChallenge.registration_end_at) : null;
+        const registrationEnded = regEnd && regEnd.getTime() < Date.now();
+        if (!registrationEnded) return;
+
+        // Challenge is "live" when status is ONGOING or we're within the challenge time window
+        const now = Date.now();
+        const startAt = currentChallenge.challenge_start_at ? new Date(currentChallenge.challenge_start_at) : null;
+        const endAt = currentChallenge.challenge_end_at ? new Date(currentChallenge.challenge_end_at) : null;
+        const isLive =
+            currentChallenge.status === "ONGOING" ||
+            (startAt && endAt && now >= startAt.getTime() && now <= endAt.getTime());
+        if (!isLive) return;
+
+        const params = new URLSearchParams();
+        params.set("id", String(currentChallenge.id));
+        const utmSource = searchParams.get("utm_source");
+        const utmMedium = searchParams.get("utm_medium");
+        const utmTerm = searchParams.get("utm_term");
+        const utmCampaign = searchParams.get("utm_campaign");
+        if (utmSource) params.set("utm_source", utmSource);
+        if (utmMedium) params.set("utm_medium", utmMedium);
+        if (utmTerm) params.set("utm_term", utmTerm);
+        if (utmCampaign) params.set("utm_campaign", utmCampaign);
+        router.replace(`/challenges/interface?${params.toString()}`);
+    }, [currentChallenge, challengeLoading, router, searchParams, challengeId, slug]);
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
+        if (name === "phone") {
+            const digitsOnly = parsePhoneInputValue(value);
+            setFormData((prev) => ({ ...prev, phone: digitsOnly }));
+            if (otpStep !== "phone") {
+                setOtpStep("phone");
+                resetOtp();
+            }
+            return;
+        }
         setFormData((prev) => ({
             ...prev,
             [name]: value,
         }));
-        if (name === "phone" && otpStep !== "phone") {
-            setOtpStep("phone");
-            resetOtp();
-        }
     };
 
 
@@ -170,14 +208,17 @@ export default function RegisterPage() {
             setError("Please enter your phone number to send OTP");
             return false;
         }
-        const success = await sendOTP(formData.phone);
-        if (success) {
+        const result = await sendOTP(formData.phone);
+        if (result?.success) {
             setOtpStep("otp");
             return true;
-        } else {
-            setError(otpError || "Failed to send OTP. Please try again.");
+        }
+        if (result?.code === "already_in_a_batch") {
+            setShowBatchStudentModal(true);
             return false;
         }
+        setError(otpError || "Failed to send OTP. Please try again.");
+        return false;
     };
 
     const handleVerifyOTP = async (code) => {
@@ -352,6 +393,10 @@ export default function RegisterPage() {
 
     return (
         <div className="min-h-screen flex flex-col md:flex-row bg-white">
+            <BatchStudentShareModal
+                open={showBatchStudentModal}
+                onClose={() => setShowBatchStudentModal(false)}
+            />
             {/* Left Side - Immersive Brand Sidebar (Desktop Only) */}
             <div className="hidden md:flex md:w-5/12 bg-[#0F0F0F] relative text-white flex-col justify-between overflow-hidden md:h-screen md:sticky md:top-0">
                 {/* Background Gradients & Effects */}
@@ -434,10 +479,10 @@ export default function RegisterPage() {
                             <div className={`${challenge.target_audience === 'COLLEGE_STUDENTS' ? 'col-span-2' : 'col-span-1'} p-5 rounded-2xl bg-gradient-to-r from-orange-600/20 to-red-600/20 border border-orange-500/20 backdrop-blur-md flex items-center justify-between`}>
                                 <div>
                                     <div className="text-2xl font-bold text-white mb-1">
-                                        {(challenge.registration_count || 0) + 247}
+                                        {getDisplayParticipantCount(challenge.registration_count)}
                                     </div>
                                     <div className="text-xs text-gray-300 uppercase tracking-wider">
-                                        Registrations
+                                        registered
                                     </div>
                                 </div>
                                 <div className="h-10 w-10 rounded-full bg-orange-500 flex items-center justify-center text-white shadow-lg shadow-orange-500/50">
@@ -625,19 +670,25 @@ export default function RegisterPage() {
                                     <div className="space-y-6 pt-4 border-t border-gray-100">
                                         <div>
                                             <label htmlFor="phone" className="block text-sm font-semibold text-gray-900 mb-2">
-                                                Phone Number <span className="text-red-500">*</span>
+                                                Mobile Number (India only) <span className="text-red-500">*</span>
                                             </label>
-                                            <input
-                                                type="tel"
-                                                id="phone"
-                                                name="phone"
-                                                value={formData.phone}
-                                                onChange={handleInputChange}
-                                                required
-                                                disabled={otpStep !== "phone"}
-                                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all font-medium text-base text-gray-900 disabled:opacity-60"
-                                                placeholder="9876543210"
-                                            />
+                                            <p className="text-xs text-gray-500 mb-2">Indian registrations only. Enter 10-digit mobile number.</p>
+                                            <div className="flex rounded-xl border border-gray-200 bg-gray-50 overflow-hidden focus-within:ring-4 focus-within:ring-orange-500/10 focus-within:border-orange-500">
+                                                <input
+                                                    type="tel"
+                                                    id="phone"
+                                                    name="phone"
+                                                    value={formatPhoneInputDisplay(formData.phone)}
+                                                    onChange={handleInputChange}
+                                                    required
+                                                    disabled={otpStep !== "phone"}
+                                                    maxLength={14}
+                                                    inputMode="numeric"
+                                                    pattern="[0-9 ]*"
+                                                    className="flex-1 min-w-0 px-4 py-3 bg-transparent font-medium text-base text-gray-900 outline-none placeholder:text-gray-400 disabled:opacity-60"
+                                                    placeholder="91 98765 43210"
+                                                />
+                                            </div>
                                             {otpStep === "verified" && (
                                                 <div className="px-4 py-3 bg-green-50 text-green-700 rounded-xl border border-green-200 font-bold flex items-center gap-2">
                                                     <FaCheckCircle /> Verified
@@ -653,14 +704,20 @@ export default function RegisterPage() {
                                             >
                                                 <div className="text-center">
                                                     <h3 className="text-lg font-bold text-gray-900">Verify your number</h3>
-                                                    <p className="text-sm text-gray-500 mt-1">Enter code sent to {formData.phone}</p>
+                                                    <p className="text-sm text-gray-500 mt-1">Enter code sent to {formData.phone ? `+91 ${formData.phone.length === 10 ? `${formData.phone.slice(0, 5)} ${formData.phone.slice(5)}` : formData.phone}` : ''}</p>
                                                 </div>
 
                                                 <div className="flex justify-center">
                                                     <OTPInput
                                                         value={otpCode}
-                                                        onChange={setOtpCode}
-                                                        onComplete={setOtpCode}
+                                                        onChange={(value) => {
+                                                            setOtpCode(value);
+                                                            clearOtpError();
+                                                        }}
+                                                        onComplete={(code) => {
+                                                            setOtpCode(code);
+                                                            if (code.length === 6) handleVerifyOTP(code);
+                                                        }}
                                                     />
                                                 </div>
 

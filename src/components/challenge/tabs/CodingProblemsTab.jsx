@@ -149,6 +149,7 @@ export default function CodingProblemsTab({
         userId,
         language: lang,
         sourceCode: codeToSave,
+        registrationId,
       })).unwrap();
 
       lastSavedByKeyRef.current[saveKey] = normalizedCode;
@@ -163,7 +164,7 @@ export default function CodingProblemsTab({
         savingKeyRef.current = null;
       }
     }
-  }, [challengeId, userId, dispatch, shouldPersistDraft, selectedProblemId, isSolvedReadOnly]);
+  }, [challengeId, userId, registrationId, dispatch, shouldPersistDraft, selectedProblemId, isSolvedReadOnly]);
 
   const scheduleSaveDraft = useCallback((codeToSave, problemId, lang) => {
     pendingSaveArgsRef.current = { codeToSave, problemId, lang };
@@ -288,12 +289,13 @@ export default function CodingProblemsTab({
 
     setIsLoadingCode(true);
 
-    // Fetch draft from backend
+    // Fetch draft from backend (registrationId required for AUTO problem selection mode)
     dispatch(fetchPublicChallengeDraft({
       challengeId,
       problemId: selectedProblemId,
       userId,
-      language: selectedLanguage
+      language: selectedLanguage,
+      registrationId
     }))
       .unwrap()
       .then((draft) => {
@@ -328,7 +330,7 @@ export default function CodingProblemsTab({
         setIsLoadingCode(false);
       });
 
-  }, [selectedProblemId, selectedLanguage, userId, challengeId, dispatch, selectedProblem, shouldPersistDraft, problemSubmissions, currentTemplate]);
+  }, [selectedProblemId, selectedLanguage, userId, registrationId, challengeId, dispatch, selectedProblem, shouldPersistDraft, problemSubmissions, currentTemplate]);
 
   // Auto-save code draft when code changes
   const handleCodeChange = useCallback((newCode) => {
