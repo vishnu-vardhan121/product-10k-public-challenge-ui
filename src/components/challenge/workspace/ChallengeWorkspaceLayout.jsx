@@ -43,11 +43,18 @@ const ChallengeWorkspaceLayout = ({
   extraContent = null,
   summaryContent = null,
   challengeId,
+  /** When true (e.g. after run/submit), auto-open results on mobile so user sees output without tapping. */
+  openResultsOnMobile = false,
 }) => {
   const showTimer = timeLeft && (timeLeft.hours > 0 || timeLeft.minutes > 0 || timeLeft.seconds > 0);
 
-  // Mobile: collapsible results section
+  // Mobile: collapsible results section (button always visible; content expands below)
   const [mobileResultsOpen, setMobileResultsOpen] = useState(false);
+
+  // Auto-open results on mobile when run/submit has happened so user sees output immediately
+  useEffect(() => {
+    if (openResultsOnMobile) setMobileResultsOpen(true);
+  }, [openResultsOnMobile]);
   // Mobile: keyboard state and viewport height for layout + scroll-into-view
   const { keyboardOpen: mobileKeyboardOpen } = useMobileViewport();
   const editorSectionRef = useRef(null);
@@ -116,39 +123,45 @@ const ChallengeWorkspaceLayout = ({
   /* Mobile/tablet: vertical stack. Use visual viewport height when keyboard open so layout fits; editor scrolls. */
   return (
     <div className="h-full flex flex-col bg-gray-50 overflow-hidden">
-      {/* Mobile layout: when keyboard open, collapse top panel and scroll editor into view; editor area scrolls so code stays visible. */}
-      <div className="h-full flex flex-col lg:hidden overflow-hidden">
+      {/* Mobile: results bar fixed at bottom so it's never hidden; content above scrolls; results drawer opens above bar. */}
+      <div className="h-full flex flex-col lg:hidden overflow-hidden relative">
+        {/* Scrollable content - has padding-bottom so it's not hidden behind fixed results bar */}
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-          <div className={`flex flex-col border-b border-gray-200 overflow-hidden transition-[max-height] duration-200 ease-out shrink-0 ${mobileKeyboardOpen ? 'max-h-0 min-h-0' : 'min-h-[180px] max-h-[50vh]'}`}>
+          <div className={`flex flex-col border-b border-gray-200 overflow-hidden transition-[max-height] duration-200 ease-out shrink-0 ${mobileKeyboardOpen ? 'max-h-0 min-h-0' : 'min-h-[140px] max-h-[40vh]'}`}>
             {leftPanelContent}
           </div>
           <div
             ref={editorSectionRef}
-            className={`overflow-hidden flex flex-col bg-gray-900 transition-all duration-200 min-h-0 flex-1 ${mobileKeyboardOpen ? 'min-h-[200px]' : 'min-h-[280px]'}`}
+            className={`overflow-hidden flex flex-col bg-gray-900 transition-all duration-200 min-h-0 flex-1 ${mobileKeyboardOpen ? 'min-h-[160px]' : 'min-h-[200px]'}`}
           >
             {rightPanelContent}
           </div>
-          <div className={`border-t border-gray-200 bg-white flex flex-col shrink-0 ${mobileResultsOpen ? 'flex-1 min-h-0' : 'max-h-0 overflow-hidden'}`}>
-            <button
-              type="button"
-              onClick={() => setMobileResultsOpen(!mobileResultsOpen)}
-              className="w-full flex items-center justify-between px-4 py-3 bg-gray-100 hover:bg-gray-200 text-sm font-semibold text-gray-700 lg:hidden shrink-0"
-            >
-              <span>Test results & Submit output</span>
-              <svg className={`w-5 h-5 transition-transform shrink-0 ${mobileResultsOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            {mobileResultsOpen && (
-              <div
-                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 overscroll-contain"
-                style={{ WebkitOverflowScrolling: 'touch' }}
-              >
-                {resultsPanelContent}
-              </div>
-            )}
-          </div>
         </div>
+
+        {/* Results: fixed at bottom so always visible; drawer opens upward when tapped */}
+        <div className="lg:hidden flex flex-col absolute bottom-0 left-0 right-0 z-20 bg-white border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] pb-[env(safe-area-inset-bottom)]">
+          <button
+            type="button"
+            onClick={() => setMobileResultsOpen(!mobileResultsOpen)}
+            className="w-full flex items-center justify-between px-4 py-3 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-sm font-semibold text-gray-700 shrink-0 touch-manipulation min-h-[48px]"
+          >
+            <span>Test results & Submit output</span>
+            <svg className={`w-5 h-5 transition-transform shrink-0 ${mobileResultsOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {mobileResultsOpen && (
+            <div
+              className="overflow-y-auto overflow-x-hidden p-3 overscroll-contain flex flex-col border-t border-gray-100 max-h-[60vh] min-h-[180px]"
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
+              {resultsPanelContent}
+            </div>
+          )}
+        </div>
+
+        {/* Spacer so content above doesn't sit under the fixed results bar */}
+        <div className="lg:hidden shrink-0 min-h-[52px] pb-[env(safe-area-inset-bottom,0px)]" aria-hidden="true" />
       </div>
 
       {/* Desktop layout: resizable panels (lg and up) */}

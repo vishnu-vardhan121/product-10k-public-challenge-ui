@@ -789,6 +789,8 @@ export default function CodingProblemsTab({
     />
   );
 
+  const hasResultsToShow = !!(sampleRunResult || submissionResult || sampleRunLoading || submitting || sampleRunError || error);
+
   return (
     <ChallengeWorkspaceLayout
       challengeId={challengeId}
@@ -798,6 +800,7 @@ export default function CodingProblemsTab({
       resultsPanelContent={resultsPanelContent}
       onHorizontalDrag={handlePanelDrag}
       onVerticalDrag={handlePanelDrag}
+      openResultsOnMobile={hasResultsToShow}
     />
   );
 }
