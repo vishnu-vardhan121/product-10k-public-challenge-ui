@@ -91,6 +91,14 @@ export default function CodingProblemsTab({
   const [horizontalLayout, setHorizontalLayout] = useState(null);
   const [verticalLayout, setVerticalLayout] = useState(null);
   const [isResizing, setIsResizing] = useState(false);
+  const [isLg, setIsLg] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const update = () => setIsLg(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
 
   const selectedProblem = useMemo(
     () => problems?.find((p) => p.id === selectedProblemId),
@@ -518,40 +526,28 @@ export default function CodingProblemsTab({
     );
   }
 
-  // Render left panel content - Description with always-visible sidebar
+  // Render left panel content - Description with always-visible sidebar (responsive)
   const renderLeftPanelContent = () => {
     const sidebarWidth = isSidebarExpanded ? 450 : 220;
 
     return (
-      <div className="h-full relative overflow-hidden">
-        {/* Description Content - Starts after sidebar, always visible */}
+      <div className="h-full relative overflow-hidden flex flex-col lg:block">
+        {/* Mobile: problem list as top bar / collapsible; desktop: sidebar */}
+        {/* Problems Sidebar - on mobile full-width when expanded */}
         <div
-          className="h-full overflow-y-auto absolute top-0 right-0 bottom-0 transition-all duration-300 ease-in-out"
-          style={{ left: `${sidebarWidth}px` }}
+          className={`lg:absolute top-0 left-0 h-full bg-white border-r border-gray-200 transition-all duration-300 ease-in-out z-10 shadow-lg shrink-0
+            ${isSidebarExpanded ? 'w-full lg:w-[450px] max-h-[70vh] lg:max-h-none' : 'w-full lg:w-[220px] max-h-[52px] lg:max-h-none'}`}
+          style={{ minHeight: '52px' }}
         >
-          <div className="p-4 lg:p-5 xl:p-6 2xl:p-7">
-            <ProblemDescription
-              problem={selectedProblem}
-              loading={false}
-              onBack={undefined}
-            />
-          </div>
-        </div>
-
-        {/* Problems Sidebar - Fixed position, toggle with click */}
-        <div
-          className={`absolute top-0 left-0 h-full bg-white border-r border-gray-200 transition-all duration-300 ease-in-out z-10 shadow-lg ${isSidebarExpanded ? 'w-[450px]' : 'w-[220px]'
-            }`}
-        >
-          <div className="h-full flex flex-col">
+          <div className="h-full flex flex-col min-h-0">
             {/* Sidebar Header */}
             <div
-              className="flex-shrink-0 px-4 py-3 border-b border-gray-200 bg-white cursor-pointer hover:bg-gray-50 transition-colors"
+              className="shrink-0 px-4 py-3 border-b border-gray-200 bg-white cursor-pointer hover:bg-gray-50 transition-colors"
               onClick={() => setIsSidebarExpanded(!isSidebarExpanded)}
             >
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-900">
-                  {isSidebarExpanded ? `Problems (${problems.length})` : 'Problems'}
+                  Problems ({problems.length})
                 </h3>
                 <button
                   className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -594,7 +590,7 @@ export default function CodingProblemsTab({
                         <div className="flex items-start gap-3">
                           {/* Problem Number */}
                           <div
-                            className={`flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-md text-sm font-bold ${isCurrent
+                            className={`shrink-0 flex h-8 w-8 items-center justify-center rounded-md text-sm font-bold ${isCurrent
                               ? 'bg-orange-500 text-white'
                               : 'bg-gray-200 text-gray-600'
                               }`}
@@ -634,9 +630,9 @@ export default function CodingProblemsTab({
                           </div>
                         </div>
 
-                        {/* Expanded View - Full Problem Details */}
+                        {/* Expanded View - Full Problem Details (desktop only; no description on mobile) */}
                         {isSidebarExpanded && (
-                          <div className="mt-3 pl-11 border-t border-gray-200 pt-3">
+                          <div className="hidden lg:block mt-3 pl-11 border-t border-gray-200 pt-3">
                             {/* Problem Description Preview */}
                             <div className="text-xs text-gray-600 line-clamp-4 leading-relaxed">
                               {(() => {
@@ -673,21 +669,35 @@ export default function CodingProblemsTab({
             </div>
           </div>
         </div>
+
+        {/* Description - below sidebar on mobile, beside sidebar on desktop */}
+        <div
+          className="flex-1 min-h-0 overflow-y-auto lg:absolute lg:top-0 lg:right-0 lg:bottom-0 transition-all duration-300 ease-in-out"
+          style={isLg ? { left: `${sidebarWidth}px` } : undefined}
+        >
+          <div className="p-4 lg:p-5 xl:p-6 2xl:p-7">
+            <ProblemDescription
+              problem={selectedProblem}
+              loading={false}
+              onBack={undefined}
+            />
+          </div>
+        </div>
       </div>
     );
   };
 
-  // Right panel content - Editor
+  // Right panel content - Editor (responsive: compact toolbar and guaranteed min-height on mobile)
   const rightPanelContent = (
-    <div className="h-full flex flex-col bg-gray-900">
-      <div className="bg-gray-800 border-b border-gray-700 px-3 lg:px-4 xl:px-4 2xl:px-5 py-2 lg:py-2 xl:py-2.5 2xl:py-2.5">
-        <div className="grid grid-cols-3 items-center gap-3 lg:gap-3 xl:gap-4 2xl:gap-4">
-          <div className="flex items-center">
+    <div className="h-full min-h-0 flex flex-col bg-gray-900">
+      <div className="shrink-0 bg-gray-800 border-b border-gray-700 px-2 sm:px-3 lg:px-4 py-2 sm:py-2.5">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-3">
+          <div className="flex items-center min-w-0">
             <select
               value={selectedLanguage}
               onChange={(e) => handleLanguageChange(e.target.value)}
               disabled={isLoadingCode || isSolvedReadOnly}
-              className="px-2.5 lg:px-3 xl:px-3 2xl:px-4 py-1.5 lg:py-1.5 xl:py-2 2xl:py-2 text-xs lg:text-sm xl:text-sm 2xl:text-base bg-gray-700 text-white rounded border border-gray-600 focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
+              className="w-full max-w-[120px] sm:max-w-none min-h-[40px] sm:min-h-0 px-2 sm:px-3 py-2 sm:py-1.5 text-xs sm:text-sm bg-gray-700 text-white rounded border border-gray-600 focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
             >
               {languages.map((lang) => (
                 <option key={lang.value} value={lang.value}>
@@ -697,19 +707,19 @@ export default function CodingProblemsTab({
             </select>
           </div>
 
-          <div className="flex justify-center">
-            <img src="/logos/10k_logo_white.webp" alt="10000Coders" className="h-7 lg:h-8 xl:h-9 2xl:h-10 object-contain" />
+          <div className="flex justify-center shrink-0">
+            <img src="/logos/10k_logo_white.webp" alt="10000Coders" className="h-6 sm:h-7 lg:h-8 object-contain" />
           </div>
 
-          <div className="flex items-center justify-end gap-1.5 lg:gap-2 xl:gap-2 2xl:gap-2">
+          <div className="flex items-center justify-end gap-1.5 sm:gap-2 min-w-0">
             {saveStatus === "saving" && (
-              <span className="text-gray-400 flex items-center gap-2 text-xs">
-                <FaSpinner className="animate-spin" /> Saving...
+              <span className="text-gray-400 flex items-center gap-1.5 text-xs shrink-0">
+                <FaSpinner className="animate-spin shrink-0" /> <span className="hidden sm:inline">Saving...</span>
               </span>
             )}
             {saveStatus === "saved" && (
-              <span className="text-green-500 flex items-center gap-2 text-xs">
-                <FaSave /> Saved!
+              <span className="text-green-500 flex items-center gap-1.5 text-xs shrink-0">
+                <FaSave className="shrink-0" /> <span className="hidden sm:inline">Saved!</span>
               </span>
             )}
 
@@ -717,7 +727,7 @@ export default function CodingProblemsTab({
               <button
                 type="button"
                 onClick={() => setIsEditMode(true)}
-                className="inline-flex items-center justify-center px-3 lg:px-4 xl:px-4 2xl:px-5 py-1.5 lg:py-1.5 xl:py-2 2xl:py-2 text-xs lg:text-sm xl:text-sm 2xl:text-base font-medium text-white bg-gray-600 hover:bg-gray-500 rounded transition-colors"
+                className="shrink-0 min-h-[40px] sm:min-h-0 inline-flex items-center justify-center px-2.5 sm:px-4 py-2 sm:py-1.5 text-xs sm:text-sm font-medium text-white bg-gray-600 hover:bg-gray-500 rounded transition-colors"
                 title="Edit solved submission"
               >
                 Edit
@@ -726,7 +736,7 @@ export default function CodingProblemsTab({
             <button
               onClick={handleRun}
               disabled={isSolvedReadOnly || sampleRunLoading || submitting || !code.trim()}
-              className="inline-flex min-w-[92px] items-center justify-center px-3 lg:px-4 xl:px-4 2xl:px-5 py-1.5 lg:py-1.5 xl:py-2 2xl:py-2 text-xs lg:text-sm xl:text-sm 2xl:text-base font-medium text-white bg-orange-600 hover:bg-orange-700 disabled:bg-orange-600/50 disabled:cursor-not-allowed rounded transition-colors"
+              className="shrink-0 min-h-[40px] sm:min-h-0 min-w-[72px] sm:min-w-[92px] inline-flex items-center justify-center px-2.5 sm:px-4 py-2 sm:py-1.5 text-xs sm:text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 disabled:bg-orange-600/50 disabled:cursor-not-allowed rounded transition-colors"
               title="Run code with sample test cases"
             >
               <ButtonContent loading={sampleRunLoading} label="Run" />
@@ -734,7 +744,7 @@ export default function CodingProblemsTab({
             <button
               onClick={handleSubmit}
               disabled={isSolvedReadOnly || submitting || sampleRunLoading || !code.trim() || !selectedProblem}
-              className="inline-flex min-w-[96px] items-center justify-center px-3 lg:px-4 xl:px-4 2xl:px-5 py-1.5 lg:py-1.5 xl:py-2 2xl:py-2 text-xs lg:text-sm xl:text-sm 2xl:text-base font-medium text-white bg-red-600 hover:bg-red-700 disabled:bg-red-600/50 disabled:cursor-not-allowed rounded transition-colors"
+              className="shrink-0 min-h-[40px] sm:min-h-0 min-w-[76px] sm:min-w-[96px] inline-flex items-center justify-center px-2.5 sm:px-4 py-2 sm:py-1.5 text-xs sm:text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:bg-red-600/50 disabled:cursor-not-allowed rounded transition-colors"
               title="Submit solution for evaluation"
             >
               <ButtonContent loading={submitting} label="Submit" />
@@ -743,7 +753,7 @@ export default function CodingProblemsTab({
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden relative">
+      <div className="flex-1 min-h-[180px] sm:min-h-[260px] overflow-hidden relative">
         {isLoadingCode ? (
           <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
             <div className="text-center">

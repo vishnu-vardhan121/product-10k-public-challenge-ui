@@ -1,5 +1,20 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
+
+// Slightly smaller font on narrow screens so more code is visible in the editor
+const useNarrowEditor = () => {
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 640px)');
+    const update = () => setNarrow(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+  return narrow
+    ? { fontSize: 13, lineHeight: 20, padding: { top: 12, bottom: 12 }, lineNumbersMinChars: 2 }
+    : { fontSize: 15, lineHeight: 24, padding: { top: 16, bottom: 16 }, lineNumbersMinChars: 3 };
+};
 
 /**
  * Monaco Editor - Simple code editor component
@@ -16,6 +31,7 @@ const MonacoEditor = ({
   challengeMode = false
 }) => {
   const editorRef = useRef(null);
+  const sizeOpts = useNarrowEditor();
 
   const handleEditorDidMount = (editor, monaco) => {
     editorRef.current = editor;
@@ -45,8 +61,8 @@ const MonacoEditor = ({
     }
 
     editor.updateOptions({
-      fontSize: 15,
-      lineHeight: 24,
+      fontSize: sizeOpts.fontSize,
+      lineHeight: sizeOpts.lineHeight,
       tabSize: 2,
       minimap: { enabled: false },
       scrollBeyondLastLine: false,
@@ -56,9 +72,10 @@ const MonacoEditor = ({
       fontWeight: '500',
       letterSpacing: 0.3,
       lineDecorationsWidth: 10,
-      lineNumbersMinChars: 3,
+      lineNumbersMinChars: sizeOpts.lineNumbersMinChars,
       renderLineHighlight: 'all',
       renderLineHighlightOnlyWhenFocus: false,
+      padding: sizeOpts.padding,
       ...(challengeMode && {
         contextmenu: false, // Disable context menu
         quickSuggestions: false,
@@ -73,8 +90,8 @@ const MonacoEditor = ({
     readOnly: readOnly,
     cursorStyle: 'line',
     automaticLayout: true,
-    fontSize: 15,
-    lineHeight: 24,
+    fontSize: sizeOpts.fontSize,
+    lineHeight: sizeOpts.lineHeight,
     tabSize: 2,
     minimap: { enabled: false },
     scrollBeyondLastLine: false,
@@ -83,10 +100,10 @@ const MonacoEditor = ({
     fontWeight: '500',
     letterSpacing: 0.3,
     lineDecorationsWidth: 10,
-    lineNumbersMinChars: 3,
+    lineNumbersMinChars: sizeOpts.lineNumbersMinChars,
     renderLineHighlight: 'all',
     renderLineHighlightOnlyWhenFocus: false,
-    padding: { top: 16, bottom: 16 },
+    padding: sizeOpts.padding,
     ...(challengeMode && {
       contextmenu: false,
       quickSuggestions: false,
@@ -96,7 +113,7 @@ const MonacoEditor = ({
 
   return (
     <div
-      className="h-full w-full"
+      className="h-full min-h-0 w-full"
       {...(challengeMode && {
         onContextMenu: (e) => e.preventDefault()
       })}

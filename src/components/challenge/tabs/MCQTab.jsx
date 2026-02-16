@@ -9,6 +9,7 @@ import { debounce } from "@/utils/debounce";
 export default function MCQTab({ challengeId, questions, loading, userId, registrationId, onGoToProblems, hasProblems }) {
   const dispatch = useDispatch();
   const [answers, setAnswers] = useState({});
+  const [mobileQuestionPickerOpen, setMobileQuestionPickerOpen] = useState(false);
   const savingInProgressRef = useRef({}); // Track which questions are currently being saved to prevent duplicates
 
   // Hydrate answers from localStorage (quick fallback) and backend (authoritative).
@@ -269,13 +270,13 @@ export default function MCQTab({ challengeId, questions, loading, userId, regist
   const isAnswered = questionAnswer.selected_option_id || questionAnswer.text_answer;
 
   return (
-    <div className="h-full flex overflow-hidden">
+    <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
       {/* Main Content Area - Single Question */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden min-w-0">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+          <div className="max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8 pb-24 md:pb-8">
             {/* Current Question */}
-            <div className="bg-white rounded-lg p-8">
+            <div className="bg-white rounded-lg p-4 sm:p-6 md:p-8">
               <div className="flex items-start gap-4 mb-6">
                 <div className="shrink-0 w-8 h-8 rounded bg-gray-100 flex items-center justify-center text-sm font-medium text-gray-600">
                   {currentQuestionIndex + 1}
@@ -294,7 +295,7 @@ export default function MCQTab({ challengeId, questions, loading, userId, regist
 
               {/* Multiple Choice Options */}
               {currentQuestion.question_type === "MULTIPLE_CHOICE" && currentQuestion.options && (
-                <div className="space-y-3 ml-12">
+                <div className="space-y-3 ml-0 sm:ml-4 md:ml-12">
                   {currentQuestion.options.map((option) => {
                     const isSelected = questionAnswer.selected_option_id === option.id;
                     return (
@@ -333,7 +334,7 @@ export default function MCQTab({ challengeId, questions, loading, userId, regist
 
               {/* Fill in the Blank */}
               {currentQuestion.question_type === "FILL_IN_BLANK" && (
-                <div className="ml-12">
+                <div className="ml-0 sm:ml-4 md:ml-12">
                   <textarea
                     value={questionAnswer.text_answer || ""}
                     onChange={(e) =>
@@ -352,31 +353,39 @@ export default function MCQTab({ challengeId, questions, loading, userId, regist
           </div>
         </div>
 
-        {/* Navigation Buttons - Fixed at bottom */}
-        <div className="shrink-0 bg-white border-t border-gray-200 px-4 py-4">
-          <div className="max-w-4xl mx-auto flex items-center justify-between">
+        {/* Navigation: fixed at bottom on mobile so always visible; normal flow on desktop */}
+        <div className="shrink-0 fixed bottom-0 left-0 right-0 md:relative md:left-auto md:right-auto bg-white border-t border-gray-200 px-3 sm:px-4 py-3 sm:py-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] md:shadow-none pb-[env(safe-area-inset-bottom)] z-30">
+          <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
             <button
               onClick={handlePrevious}
               disabled={currentQuestionIndex === 0}
-              className="px-6 py-2.5 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed flex items-center gap-2"
+              className="min-h-[44px] min-w-[44px] px-4 sm:px-6 py-2.5 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-              Previous
+              <span className="hidden sm:inline">Previous</span>
             </button>
 
-            <span className="text-sm font-medium text-gray-700">
+            <button
+              type="button"
+              onClick={() => setMobileQuestionPickerOpen(true)}
+              className="md:hidden min-h-[44px] px-3 py-2 rounded-lg border-2 border-gray-300 bg-white text-gray-700 font-medium text-sm"
+            >
+              {currentQuestionIndex + 1} / {totalCount}
+            </button>
+
+            <span className="hidden md:inline text-sm font-medium text-gray-700">
               Question {currentQuestionIndex + 1} of {totalCount}
             </span>
 
             {currentQuestionIndex === questions.length - 1 && hasProblems && onGoToProblems ? (
               <button
                 onClick={onGoToProblems}
-                className="px-6 py-2.5 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors flex items-center gap-2"
+                className="min-h-[44px] px-4 sm:px-6 py-2.5 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
               >
-                Go to Coding Problems
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <span className="hidden sm:inline">Go to Coding</span>
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                 </svg>
               </button>
@@ -384,10 +393,10 @@ export default function MCQTab({ challengeId, questions, loading, userId, regist
               <button
                 onClick={handleNext}
                 disabled={currentQuestionIndex === questions.length - 1}
-                className="px-6 py-2.5 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed flex items-center gap-2"
+                className="min-h-[44px] min-w-[44px] px-4 sm:px-6 py-2.5 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                Next
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <span className="hidden sm:inline">Next</span>
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
@@ -396,8 +405,61 @@ export default function MCQTab({ challengeId, questions, loading, userId, regist
         </div>
       </div>
 
-      {/* Right Sidebar - Non-scrollable, Fixed */}
-      <div className="w-64 bg-gray-50 border-l border-gray-200 shrink-0 flex flex-col">
+      {/* Mobile question picker sheet */}
+      {mobileQuestionPickerOpen && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/50 z-40 md:hidden"
+            onClick={() => setMobileQuestionPickerOpen(false)}
+            aria-hidden
+          />
+          <div className="fixed inset-x-0 bottom-0 z-50 max-h-[70vh] rounded-t-2xl bg-white shadow-xl md:hidden flex flex-col">
+            <div className="shrink-0 px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-900">Jump to question</h3>
+              <button
+                type="button"
+                onClick={() => setMobileQuestionPickerOpen(false)}
+                className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
+                aria-label="Close"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="grid grid-cols-5 gap-2.5">
+                {questions.map((question, index) => {
+                  const qAnswer = answers[question.id] || {};
+                  const answered = qAnswer.selected_option_id || qAnswer.text_answer;
+                  const isCurrent = currentQuestionIndex === index;
+                  return (
+                    <button
+                      key={question.id}
+                      type="button"
+                      onClick={() => {
+                        setCurrentQuestionIndex(index);
+                        setMobileQuestionPickerOpen(false);
+                      }}
+                      className={`aspect-square flex items-center justify-center rounded-lg border-2 transition-colors font-semibold text-sm min-h-[44px] ${isCurrent
+                        ? "border-orange-600 bg-orange-600 text-white"
+                        : answered
+                          ? "border-orange-400 bg-orange-100 text-orange-700"
+                          : "border-gray-300 bg-white text-gray-500"
+                        }`}
+                    >
+                      {index + 1}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Right Sidebar - Desktop only */}
+      <div className="hidden md:flex w-64 bg-gray-50 border-l border-gray-200 shrink-0 flex-col">
         {/* Sidebar Header */}
         <div className="shrink-0 px-4 py-4 border-b border-gray-200 bg-white">
           <h3 className="text-sm font-semibold text-gray-900">

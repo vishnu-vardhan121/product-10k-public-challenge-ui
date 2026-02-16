@@ -4,21 +4,29 @@ import { FaTimes, FaWhatsapp, FaLink } from "react-icons/fa";
 
 const SHARE_MESSAGE = "Check out this coding challenge from 10000Coders! Register and compete for rewards.";
 
-const UTM_PARAMS = {
-  utm_source: "frnd_reff",
-  utm_medium: "share",
-  utm_campaign: "referral",
-};
+function buildUtmParams(referrerBatch, referrerName) {
+  return {
+    utm_source: "frnd_reff",
+    utm_medium: "share",
+    utm_campaign: (referrerBatch && String(referrerBatch).trim()) || "referral",
+    utm_term: (referrerName && String(referrerName).trim()) || "",
+  };
+}
 
-function addUtmToShareUrl(href) {
+function addUtmToShareUrl(href, referrerBatch, referrerName) {
   if (!href) return href;
+  const params = buildUtmParams(referrerBatch, referrerName);
   try {
     const url = new URL(href);
-    Object.entries(UTM_PARAMS).forEach(([key, value]) => url.searchParams.set(key, value));
+    Object.entries(params).forEach(([key, value]) => {
+      if (value != null && value !== "") url.searchParams.set(key, value);
+    });
     return url.toString();
   } catch {
     const sep = href.includes("?") ? "&" : "?";
-    const qs = new URLSearchParams(UTM_PARAMS).toString();
+    const qs = new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== ""))
+    ).toString();
     return `${href}${sep}${qs}`;
   }
 }
@@ -26,11 +34,11 @@ function addUtmToShareUrl(href) {
 /**
  * Modal shown when a 10000Coders batch student tries to register/verify OTP.
  * Asks them to share the form with friends and provides WhatsApp share + copy link.
- * Share link includes UTM params (utm_source=frnd_reff) so friend signups are tracked.
+ * Share link includes UTM params (utm_source=frnd_reff, utm_campaign=referrerBatch, utm_term=referrerName) so we know who referred.
  */
-export default function BatchStudentShareModal({ open, onClose, shareUrl }) {
+export default function BatchStudentShareModal({ open, onClose, shareUrl, referrerBatch, referrerName }) {
   const baseUrl = shareUrl || (typeof window !== "undefined" ? window.location.href : "");
-  const url = addUtmToShareUrl(baseUrl);
+  const url = addUtmToShareUrl(baseUrl, referrerBatch, referrerName);
   const whatsappText = encodeURIComponent(`${SHARE_MESSAGE}\n\n${url}`);
   const whatsappUrl = `https://wa.me/?text=${whatsappText}`;
 

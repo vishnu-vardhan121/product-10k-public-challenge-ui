@@ -9,6 +9,23 @@ import ChallengeTimer from "./ChallengeTimer";
 import { getNowMs, initTimeSync, syncServerTime } from '@/utils/timeSync';
 import { useRouter } from "next/navigation";
 
+// On mobile, use visual viewport height so layout fits above the keyboard and content can scroll.
+function useVisualViewportHeight() {
+  const [height, setHeight] = useState(typeof window !== 'undefined' ? window.innerHeight : null);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+    const update = () => setHeight(window.visualViewport.height);
+    update();
+    window.visualViewport.addEventListener('resize', update);
+    window.visualViewport.addEventListener('scroll', update);
+    return () => {
+      window.visualViewport.removeEventListener('resize', update);
+      window.visualViewport.removeEventListener('scroll', update);
+    };
+  }, []);
+  return height;
+}
+
 
 // Inline timer component for compact display
 const CompactTimer = ({ timeLeft }) => {
@@ -42,6 +59,7 @@ export default function ChallengeInterface({ challengeId }) {
   const router = useRouter();
   const lastMCQFetchKeyRef = useRef(null);
   const lastProblemsFetchKeyRef = useRef(null);
+  const visualViewportHeight = useVisualViewportHeight();
 
   const {
     currentChallenge: challenge,
@@ -231,59 +249,67 @@ export default function ChallengeInterface({ challengeId }) {
     // No-op: registration is handled by the interface page
   };
 
+  // Use visual viewport height when available so on mobile when keyboard opens the layout shrinks and editor stays above keyboard; code scrolls inside editor.
+  const rootStyle = visualViewportHeight != null
+    ? { height: visualViewportHeight, maxHeight: visualViewportHeight }
+    : undefined;
+
   return (
-    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden relative">
+    <div
+      className="h-dvh sm:h-screen bg-gray-50 flex flex-col overflow-hidden relative"
+      style={rootStyle}
+    >
       {/* Challenge Ended Overlay */}
       {isChallengeEnded && (
         <div
-          className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-gray-50"
+          className="absolute inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-gray-50 overflow-y-auto"
         >
-          <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full p-16 text-center">
+          <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl max-w-3xl w-full p-6 sm:p-10 md:p-16 text-center">
             {/* Success Icon */}
-            <div className="mb-10">
-              <div className="w-28 h-28 bg-orange-500 rounded-full mx-auto flex items-center justify-center mb-8 animate-pulse">
-                <svg className="w-16 h-16 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="mb-6 sm:mb-10">
+              <div className="w-20 h-20 sm:w-28 sm:h-28 bg-orange-500 rounded-full mx-auto flex items-center justify-center mb-6 sm:mb-8 animate-pulse">
+                <svg className="w-10 h-10 sm:w-16 sm:h-16 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
             </div>
 
             {/* Main Heading */}
-            <h1 className="text-6xl font-bold text-gray-900 mb-6">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-gray-900 mb-4 sm:mb-6">
               Thank You!
             </h1>
 
-            <p className="text-2xl text-gray-600 mb-12 leading-relaxed">
+            <p className="text-lg sm:text-xl md:text-2xl text-gray-600 mb-8 sm:mb-12 leading-relaxed px-1">
               Your challenge has been completed successfully.<br />
               Our team will review your submissions and contact you soon.
             </p>
 
             {/* Divider */}
-            <div className="w-24 h-1 bg-orange-500 mx-auto mb-12"></div>
+            <div className="w-24 h-1 bg-orange-500 mx-auto mb-8 sm:mb-12"></div>
 
             {/* Info Box */}
-            <div className="bg-orange-50 rounded-2xl p-8 mb-12 border-2 border-orange-200">
-              <div className="flex items-center justify-center gap-4">
-                <svg className="w-7 h-7 text-orange-600" fill="currentColor" viewBox="0 0 20 20">
+            <div className="bg-orange-50 rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 mb-8 sm:mb-12 border-2 border-orange-200">
+              <div className="flex items-center justify-center gap-3 sm:gap-4 flex-wrap">
+                <svg className="w-6 h-6 sm:w-7 sm:h-7 text-orange-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
-                <span className="text-xl font-semibold text-orange-900">All your answers have been saved</span>
+                <span className="text-base sm:text-lg md:text-xl font-semibold text-orange-900">All your answers have been saved</span>
               </div>
             </div>
 
             {/* Logo */}
-            <div className="mb-10">
+            <div className="mb-8 sm:mb-10">
               <img
                 src="/logos/10k_logo_black.webp"
                 alt="10000Coders"
-                className="h-14 mx-auto object-contain opacity-80"
+                className="h-10 sm:h-14 mx-auto object-contain opacity-80"
               />
             </div>
 
             {/* Home Button */}
             <a
               href="/"
-              className="inline-flex items-center gap-3 px-10 py-5 bg-orange-500 hover:bg-orange-600 text-white font-bold text-xl rounded-2xl transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-1"
+              className="inline-flex items-center gap-2 sm:gap-3 px-6 sm:px-8 md:px-10 py-3 sm:py-4 md:py-5 bg-orange-500 hover:bg-orange-600 text-white font-bold text-base sm:text-lg md:text-xl rounded-xl sm:rounded-2xl transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-1 min-h-[44px]"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -294,19 +320,20 @@ export default function ChallengeInterface({ challengeId }) {
         </div>
       )}
 
-      {/* Tabs Navigation - Fixed at top */}
+      {/* Tabs Navigation - Fixed at top, responsive */}
       <div className="flex-shrink-0 bg-white border-b border-gray-200 shadow-sm">
-        <div className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-8">
-            {/* Logo */}
-            <img src="/logos/10k_logo_black.webp" alt="10000Coders" className="h-12 object-contain" />
-            {/* Tabs */}
-            <div className="flex items-center gap-1">
+        {/* Mobile: row 1 = logo + timer/user aligned; row 2 = tabs full width. Desktop: single row */}
+        <div className="flex flex-col gap-0 sm:flex-row sm:items-center sm:justify-between sm:gap-3 px-3 sm:px-4 md:px-6 py-2 sm:py-4">
+          {/* Row 1 on mobile: Logo (left) | Timer + User (right). On desktop: Logo + Tabs (left) */}
+          <div className="flex items-center justify-between min-w-0 sm:justify-start sm:gap-6 md:gap-8">
+            <img src="/logos/10k_logo_black.webp" alt="10000Coders" className="h-8 sm:h-10 md:h-12 object-contain shrink-0" />
+            {/* Tabs - desktop only in this row; mobile gets own row below */}
+            <div className="hidden sm:flex items-center gap-1 overflow-x-auto scrollbar-hide">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`relative px-5 py-2.5 text-sm font-bold transition-all rounded-t-lg ${activeTab === tab.id
+                  className={`relative px-4 md:px-5 py-2.5 text-sm font-bold transition-all rounded-t-lg whitespace-nowrap min-h-[44px] flex items-center ${activeTab === tab.id
                     ? "text-orange-600"
                     : "text-gray-600 hover:text-gray-900"
                     }`}
@@ -326,18 +353,16 @@ export default function ChallengeInterface({ challengeId }) {
               ))}
             </div>
           </div>
-          {/* Right Section: Time & User */}
-          <div className="flex items-center gap-4">
+          {/* Right: Timer + User - same row as logo on mobile */}
+          <div className="flex items-center justify-end gap-2 sm:gap-4 shrink-0 sm:min-w-0">
             <CompactTimer timeLeft={timeLeft} />
-
-            {/* User Profile */}
             {useSelector(state => state.publicChallenge.userName) && (
-              <div className="flex items-center gap-2 pl-4 border-l border-gray-200">
-                <div className="flex flex-col items-end">
-                  <span className="text-sm font-bold text-gray-900">{useSelector(state => state.publicChallenge.userName)}</span>
+              <div className="flex items-center gap-2 pl-2 sm:pl-4 border-l border-gray-200">
+                <div className="hidden sm:flex flex-col items-end">
+                  <span className="text-xs sm:text-sm font-bold text-gray-900 truncate max-w-[100px] sm:max-w-none">{useSelector(state => state.publicChallenge.userName)}</span>
                 </div>
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-white shadow-sm border-2 border-white">
-                  <span className="text-sm font-bold uppercase">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-white shadow-sm border-2 border-white min-w-[32px] min-h-[32px]">
+                  <span className="text-xs sm:text-sm font-bold uppercase">
                     {useSelector(state => state.publicChallenge.userName).charAt(0)}
                   </span>
                 </div>
@@ -345,9 +370,36 @@ export default function ChallengeInterface({ challengeId }) {
             )}
           </div>
         </div>
+        {/* Mobile only: Tabs on their own row, full width scroll */}
+        <div className="sm:hidden border-t border-gray-100 px-1">
+          <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-hide min-h-[44px]">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`relative px-3 py-2.5 text-xs font-bold transition-all rounded-t-lg whitespace-nowrap min-h-[44px] flex items-center shrink-0 ${activeTab === tab.id
+                  ? "text-orange-600"
+                  : "text-gray-600 hover:text-gray-900"
+                  }`}
+              >
+                <span className="flex items-center gap-1.5">
+                  {tab.label}
+                  {tab.count !== undefined && (
+                    <span className={`px-1.5 py-0.5 rounded-full text-xs font-semibold ${activeTab === tab.id
+                      ? "bg-orange-100 text-orange-700"
+                      : "bg-gray-100 text-gray-600"
+                      }`}>
+                      {tab.count}
+                    </span>
+                  )}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
         {renderTabContent()}
       </div>
     </div>

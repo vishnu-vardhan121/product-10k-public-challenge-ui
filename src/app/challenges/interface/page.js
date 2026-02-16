@@ -20,7 +20,7 @@ import {
   FaPhone,
   FaLock,
 } from "react-icons/fa";
-import { formatPhoneNumber, formatPhoneInputDisplay, parsePhoneInputValue } from "@/services/phoneUtils";
+import { formatPhoneNumber, formatPhoneInputDisplay, parsePhoneInputValue, validateIndianPhoneNumber } from "@/services/phoneUtils";
 import ChallengeInterface from "@/components/challenge/ChallengeInterface";
 import BatchStudentShareModal from "@/components/shared/BatchStudentShareModal";
 import {
@@ -188,6 +188,10 @@ export default function ChallengeInterfacePage() {
       setLocalError("Please enter your phone number");
       return;
     }
+    if (!validateIndianPhoneNumber(phone)) {
+      setLocalError("Please enter a valid 10-digit mobile number");
+      return;
+    }
     setLocalError(null);
     dispatch(clearError());
     setCheckingRegistration(true);
@@ -196,7 +200,7 @@ export default function ChallengeInterfacePage() {
 
     try {
       const result = await dispatch(
-        checkRegistrationStatus({ challengeId: parseInt(challengeId), phone })
+        checkRegistrationStatus({ challengeId: parseInt(challengeId), phone: formatPhoneNumber(phone) })
       ).unwrap();
 
       // Handle new user case
@@ -272,7 +276,11 @@ export default function ChallengeInterfacePage() {
       setLocalError("Please enter your phone number to send OTP");
       return;
     }
-    const result = await sendOTP(phone);
+    if (!validateIndianPhoneNumber(phone)) {
+      setLocalError("Please enter a valid 10-digit mobile number");
+      return;
+    }
+    const result = await sendOTP(formatPhoneNumber(phone));
     if (result?.success) {
       setOtpStep("otp");
       return;
@@ -409,6 +417,8 @@ export default function ChallengeInterfacePage() {
       <BatchStudentShareModal
         open={showBatchStudentModal}
         onClose={() => setShowBatchStudentModal(false)}
+        referrerBatch={searchParams.get("utm_campaign") || undefined}
+        referrerName={searchParams.get("utm_term") || undefined}
       />
       {/* Left Panel - Immersive Visual */}
       <div className="relative hidden lg:flex flex-col justify-end p-12 lg:p-16 overflow-hidden bg-gray-900">
@@ -522,7 +532,7 @@ export default function ChallengeInterfacePage() {
 
                 <button
                   onClick={handleCheckRegistration}
-                  disabled={otpLoading || !phone.trim() || checkingRegistration}
+                  disabled={otpLoading || !phone.trim() || phone.length !== 10 || checkingRegistration}
                   className="w-full flex items-center justify-center px-6 sm:px-8 py-3.5 sm:py-4 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg disabled:bg-gray-300 disabled:cursor-not-allowed transform hover:-translate-y-0.5 active:translate-y-0"
                 >
                   {checkingRegistration ? (

@@ -36,7 +36,7 @@ import {
     FaInfoCircle,
     FaListAlt,
 } from "react-icons/fa";
-import { formatPhoneNumber, formatPhoneInputDisplay, parsePhoneInputValue } from "@/services/phoneUtils";
+import { formatPhoneNumber, formatPhoneInputDisplay, parsePhoneInputValue, validateIndianPhoneNumber } from "@/services/phoneUtils";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function RegisterPage() {
@@ -208,6 +208,10 @@ export default function RegisterPage() {
             setError("Please enter your phone number to send OTP");
             return false;
         }
+        if (!validateIndianPhoneNumber(formData.phone)) {
+            setError("Please enter a valid 10-digit mobile number");
+            return false;
+        }
         const result = await sendOTP(formData.phone);
         if (result?.success) {
             setOtpStep("otp");
@@ -266,6 +270,10 @@ export default function RegisterPage() {
 
         if (!formData.phone.trim()) {
             setError("Phone number is required");
+            return;
+        }
+        if (!validateIndianPhoneNumber(formData.phone)) {
+            setError("Please enter a valid 10-digit mobile number");
             return;
         }
 
@@ -396,6 +404,8 @@ export default function RegisterPage() {
             <BatchStudentShareModal
                 open={showBatchStudentModal}
                 onClose={() => setShowBatchStudentModal(false)}
+                referrerBatch={searchParams.get("utm_campaign") || undefined}
+                referrerName={searchParams.get("utm_term") || undefined}
             />
             {/* Left Side - Immersive Brand Sidebar (Desktop Only) */}
             <div className="hidden md:flex md:w-5/12 bg-[#0F0F0F] relative text-white flex-col justify-between overflow-hidden md:h-screen md:sticky md:top-0">
@@ -530,7 +540,7 @@ export default function RegisterPage() {
                         </Link>
                     </div>
                 ) : (
-                    <div className="flex-1 w-full max-w-2xl mx-auto px-5 py-8 md:p-16 flex flex-col justify-start md:justify-center">
+                    <div className="flex-1 w-full max-w-2xl mx-auto px-4 sm:px-5 py-6 sm:py-8 md:p-16 flex flex-col justify-start md:justify-center pb-[env(safe-area-inset-bottom)]">
 
                         {/* Mobile Header (Integrated) */}
                         {/* Mobile Header (Integrated) */}
@@ -602,11 +612,11 @@ export default function RegisterPage() {
                             </div>
                         ) : (
                             <>
-                                <div className="mb-8 hidden md:block">
-                                    <h2 className="text-3xl font-bold text-gray-900 mb-2">
+                                <div className="mb-6 sm:mb-8">
+                                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2">
                                         Register Now
                                     </h2>
-                                    <p className="text-gray-500">
+                                    <p className="text-sm sm:text-base text-gray-500">
                                         Fill in your details to get started with the challenge.
                                     </p>
                                 </div>
@@ -620,10 +630,10 @@ export default function RegisterPage() {
                                             initial={{ opacity: 0, height: 0 }}
                                             animate={{ opacity: 1, height: "auto" }}
                                             exit={{ opacity: 0, height: 0 }}
-                                            className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-6 flex items-start gap-2"
+                                            className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-4 sm:mb-6 flex items-start gap-2 text-sm"
                                         >
-                                            <FaExclamationTriangle className="flex-shrink-0 mt-0.5" />
-                                            <p className="text-sm">{error}</p>
+                                            <FaExclamationTriangle className="shrink-0 mt-0.5" />
+                                            <p className="min-w-0 break-words">{error}</p>
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
@@ -645,7 +655,7 @@ export default function RegisterPage() {
                                                 value={formData.name}
                                                 onChange={handleInputChange}
                                                 required
-                                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all font-medium text-base text-gray-900"
+                                                className="w-full min-h-[48px] sm:min-h-0 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all font-medium text-base text-gray-900"
                                                 placeholder="Enter your full name"
                                             />
                                         </div>
@@ -660,16 +670,16 @@ export default function RegisterPage() {
                                                 name="email"
                                                 value={formData.email}
                                                 onChange={handleInputChange}
-                                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all font-medium text-base text-gray-900"
+                                                className="w-full min-h-[48px] sm:min-h-0 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all font-medium text-base text-gray-900"
                                                 placeholder="name@example.com"
                                             />
                                         </div>
                                     </div>
 
                                     {/* Phone & Verification Group */}
-                                    <div className="space-y-6 pt-4 border-t border-gray-100">
+                                    <div className="space-y-4 sm:space-y-6 pt-4 border-t border-gray-100">
                                         <div>
-                                            <label htmlFor="phone" className="block text-sm font-semibold text-gray-900 mb-2">
+                                            <label htmlFor="phone" className="block text-sm font-semibold text-gray-900 mb-1.5 sm:mb-2">
                                                 Mobile Number (India only) <span className="text-red-500">*</span>
                                             </label>
                                             <p className="text-xs text-gray-500 mb-2">Indian registrations only. Enter 10-digit mobile number.</p>
@@ -685,7 +695,7 @@ export default function RegisterPage() {
                                                     maxLength={14}
                                                     inputMode="numeric"
                                                     pattern="[0-9 ]*"
-                                                    className="flex-1 min-w-0 px-4 py-3 bg-transparent font-medium text-base text-gray-900 outline-none placeholder:text-gray-400 disabled:opacity-60"
+                                                    className="flex-1 min-w-0 min-h-[48px] sm:min-h-0 px-4 py-3 bg-transparent font-medium text-base text-gray-900 outline-none placeholder:text-gray-400 disabled:opacity-60"
                                                     placeholder="91 98765 43210"
                                                 />
                                             </div>
@@ -700,11 +710,11 @@ export default function RegisterPage() {
                                             <motion.div
                                                 initial={{ opacity: 0, height: 0 }}
                                                 animate={{ opacity: 1, height: "auto" }}
-                                                className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm space-y-6"
+                                                className="bg-white border border-gray-100 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-4 sm:space-y-6"
                                             >
                                                 <div className="text-center">
-                                                    <h3 className="text-lg font-bold text-gray-900">Verify your number</h3>
-                                                    <p className="text-sm text-gray-500 mt-1">Enter code sent to {formData.phone ? `+91 ${formData.phone.length === 10 ? `${formData.phone.slice(0, 5)} ${formData.phone.slice(5)}` : formData.phone}` : ''}</p>
+                                                    <h3 className="text-base sm:text-lg font-bold text-gray-900">Verify your number</h3>
+                                                    <p className="text-xs sm:text-sm text-gray-500 mt-1 break-all">Enter code sent to {formData.phone ? `+91 ${formData.phone.length === 10 ? `${formData.phone.slice(0, 5)} ${formData.phone.slice(5)}` : formData.phone}` : ''}</p>
                                                 </div>
 
                                                 <div className="flex justify-center">
@@ -730,20 +740,20 @@ export default function RegisterPage() {
                                                     </div>
                                                 )}
 
-                                                <div className="flex items-center justify-between text-sm pt-2">
+                                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-sm pt-2">
                                                     <button
                                                         type="button"
                                                         onClick={() => {
                                                             setOtpStep("phone");
                                                             resetOtp();
                                                         }}
-                                                        className="text-gray-500 hover:text-gray-900 font-medium"
+                                                        className="min-h-[44px] sm:min-h-0 px-3 py-2 text-gray-500 hover:text-gray-900 font-medium rounded-lg touch-manipulation"
                                                     >
                                                         Wrong Number?
                                                     </button>
 
                                                     {countdown > 0 ? (
-                                                        <span className="text-gray-400 font-mono">
+                                                        <span className="text-gray-400 font-mono text-center">
                                                             {Math.floor(countdown / 60)}:{(countdown % 60).toString().padStart(2, '0')}
                                                         </span>
                                                     ) : (
@@ -751,7 +761,7 @@ export default function RegisterPage() {
                                                             type="button"
                                                             onClick={handleResendOTP}
                                                             disabled={otpLoading}
-                                                            className="text-orange-600 font-semibold hover:underline"
+                                                            className="min-h-[44px] sm:min-h-0 px-3 py-2 text-orange-600 font-semibold hover:underline rounded-lg touch-manipulation disabled:opacity-50"
                                                         >
                                                             Resend Code
                                                         </button>
@@ -788,7 +798,7 @@ export default function RegisterPage() {
                                                 name="qualification"
                                                 value={formData.qualification}
                                                 onChange={handleInputChange}
-                                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all font-medium text-base text-gray-900"
+                                                className="w-full min-h-[48px] sm:min-h-0 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all font-medium text-base text-gray-900"
                                                 placeholder="Highest Qualification (e.g. B.Tech)"
                                             />
                                         </div>
@@ -803,7 +813,7 @@ export default function RegisterPage() {
                                                 name="college_name"
                                                 value={formData.college_name}
                                                 onChange={handleInputChange}
-                                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all font-medium text-base text-gray-900"
+                                                className="w-full min-h-[48px] sm:min-h-0 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all font-medium text-base text-gray-900"
                                                 placeholder="Enter your college name"
                                             />
                                         </div>
@@ -820,17 +830,17 @@ export default function RegisterPage() {
                                                 onChange={handleInputChange}
                                                 min="1900"
                                                 max="2100"
-                                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all font-medium text-base text-gray-900"
+                                                className="w-full min-h-[48px] sm:min-h-0 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all font-medium text-base text-gray-900"
                                                 placeholder="2024"
                                             />
                                         </div>
                                     </div>
 
-                                    <div className="pt-8 mt-8 border-t border-gray-100">
+                                    <div className="pt-6 sm:pt-8 mt-6 sm:mt-8 border-t border-gray-100">
                                         <button
                                             type="submit"
                                             disabled={submitting || otpLoading || (otpStep === "otp" && !otpVerified && otpCode.length !== 6)}
-                                            className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 ${!submitting && !otpLoading
+                                            className={`w-full min-h-[48px] sm:min-h-0 py-4 rounded-xl font-bold text-base sm:text-lg shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 touch-manipulation ${!submitting && !otpLoading
                                                 ? "bg-gradient-to-r from-orange-600 to-orange-500 text-white shadow-orange-500/25 hover:shadow-orange-500/40"
                                                 : "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
                                                 }`}

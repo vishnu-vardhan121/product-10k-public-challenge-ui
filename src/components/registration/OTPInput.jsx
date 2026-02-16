@@ -86,7 +86,7 @@ const OTPInput = ({ value, onChange, onComplete, disabled = false, error = null,
 
   return (
     <div className="w-full">
-      <div className="flex justify-center gap-2 mb-4">
+      <div className="flex justify-center gap-1.5 sm:gap-2 md:gap-3 mb-4 flex-wrap">
         {otp.map((digit, index) => (
           <input
             key={index}
@@ -99,7 +99,7 @@ const OTPInput = ({ value, onChange, onComplete, disabled = false, error = null,
             onKeyDown={(e) => handleKeyDown(index, e)}
             onPaste={handlePaste}
             disabled={disabled}
-            className={`w-12 h-14 text-center text-2xl font-bold border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all ${
+            className={`min-w-[40px] w-10 h-12 sm:w-12 sm:h-14 md:w-14 md:h-14 text-center text-lg sm:text-xl md:text-2xl font-bold border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-1 transition-all touch-manipulation ${
               error
                 ? "border-red-500 bg-red-50"
                 : digit
