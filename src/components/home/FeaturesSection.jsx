@@ -32,29 +32,29 @@ const features = [
 
 const FeaturesSection = () => {
     return (
-        <section className="py-16 md:py-24 bg-white overflow-hidden">
+        <section className="py-12 sm:py-16 md:py-24 bg-white overflow-hidden">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <motion.div
-                    className="text-center mb-20"
+                    className="text-center mb-12 sm:mb-16 md:mb-20"
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ duration: 0.6 }}
                 >
-                    <span className="text-orange-600 font-semibold tracking-wide uppercase text-sm">Why Join Us?</span>
-                    <h2 className="mt-3 text-4xl md:text-5xl font-bold text-gray-900 leading-tight">
+                    <span className="text-orange-600 font-semibold tracking-wide uppercase text-xs sm:text-sm">Why Join Us?</span>
+                    <h2 className="mt-2 sm:mt-3 text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 leading-tight px-1">
                         More Than Just a <span className="bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">Coding Platform</span>
                     </h2>
-                    <p className="mt-4 text-xl text-gray-600 max-w-2xl mx-auto">
+                    <p className="mt-3 sm:mt-4 text-base sm:text-lg md:text-xl text-gray-600 max-w-2xl mx-auto">
                         Experience a complete ecosystem designed to elevate your programming career.
                     </p>
                 </motion.div>
 
-                <div className="space-y-16 md:space-y-32">
+                <div className="space-y-12 sm:space-y-16 md:space-y-32">
                     {features.map((feature, index) => (
                         <div
                             key={index}
-                            className={`flex flex-col md:flex-row items-center gap-12 lg:gap-20 ${feature.reverse ? 'md:flex-row-reverse' : ''}`}
+                            className={`flex flex-col md:flex-row items-center gap-8 sm:gap-12 lg:gap-20 ${feature.reverse ? 'md:flex-row-reverse' : ''}`}
                         >
                             {/* Image Side */}
                             <motion.div
@@ -91,10 +91,10 @@ const FeaturesSection = () => {
                                 viewport={{ once: true }}
                                 transition={{ duration: 0.8, delay: 0.2 }}
                             >
-                                <h3 className="text-3xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                                <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center gap-3">
                                     {feature.title}
                                 </h3>
-                                <p className="text-lg text-gray-600 leading-relaxed mb-8">
+                                <p className="text-base sm:text-lg text-gray-600 leading-relaxed mb-6 sm:mb-8">
                                     {feature.description}
                                 </p>
                                 <div className="h-1 w-20 bg-gradient-to-r from-orange-500 to-amber-500 rounded-full"></div>

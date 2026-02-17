@@ -71,7 +71,7 @@ const Footer = () => {
               />
             </div>
             <div>
-              <p className="text-white font-bold text-lg mb-4">Reach Us</p>
+              <p className="text-white font-bold text-base sm:text-lg mb-4">Reach Us</p>
               <div className="flex flex-col gap-3">
                 {reachUs.map(({ text, icon, type, location }, idx) => (
                   <div key={text + '_' + idx} className="flex items-center gap-3">
@@ -96,7 +96,7 @@ const Footer = () => {
 
           {/* Quick Links */}
           <div>
-            <p className="text-white font-bold text-lg mb-4">Quick Links</p>
+            <p className="text-white font-bold text-base sm:text-lg mb-4">Quick Links</p>
             <div className="flex flex-col gap-2">
               {quickLinks.map(({ text, link }, idx) => (
                 <Link
@@ -112,7 +112,7 @@ const Footer = () => {
 
           {/* Social Media */}
           <div>
-            <p className="text-white font-bold text-lg mb-4">Social Media</p>
+            <p className="text-white font-bold text-base sm:text-lg mb-4">Social Media</p>
             <div className="flex flex-col gap-3">
               {socialMedia.map(({ text, icon, link }, idx) => (
                 <Link
@@ -133,7 +133,7 @@ const Footer = () => {
 
           {/* Our Offices */}
           <div>
-            <p className="text-white font-bold text-lg mb-4">Our Offices</p>
+            <p className="text-white font-bold text-base sm:text-lg mb-4">Our Offices</p>
             <div className="flex flex-col gap-4">
               {addresses.map(({ location, address, mapLink }, idx) => (
                 <a

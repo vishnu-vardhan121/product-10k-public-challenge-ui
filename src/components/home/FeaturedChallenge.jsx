@@ -172,7 +172,7 @@ const FeaturedChallenge = () => {
                                 )}
                             </div>
 
-                            <h2 className="text-3xl md:text-5xl font-bold text-white mb-6 leading-tight">
+                            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 sm:mb-6 leading-tight px-1">
                                 {featured.title}
                             </h2>
 
