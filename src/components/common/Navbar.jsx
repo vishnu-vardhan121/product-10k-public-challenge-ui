@@ -2,14 +2,17 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { FaBars, FaTimes } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
+import { getUtmQueryString, appendUtmToPath } from "@/utils/utmParams";
 
 const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const challengesHref = appendUtmToPath("/challenges", getUtmQueryString(searchParams));
 
 
 
@@ -105,14 +108,15 @@ const Navbar = () => {
               </Link>
             ))}
 
-            {/* CTA Button */}
+            {/* CTA Button – responsive touch target and padding */}
             <motion.div
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
+              className="shrink-0"
             >
               <Link
-                href="/challenges"
-                className="ml-2 md:ml-4 px-4 md:px-6 py-2 md:py-2.5 bg-gradient-to-r from-orange-600 to-red-600 text-white text-sm md:text-base font-semibold rounded-lg shadow-md hover:shadow-lg transition-all"
+                href={challengesHref}
+                className="inline-flex items-center justify-center min-h-[44px] sm:min-h-0 ml-1 sm:ml-2 md:ml-4 px-3 sm:px-4 md:px-6 py-2.5 sm:py-2 md:py-2.5 text-sm sm:text-base font-semibold rounded-lg shadow-md hover:shadow-lg transition-all bg-gradient-to-r from-orange-600 to-red-600 text-white whitespace-nowrap"
               >
                 Browse Challenges
               </Link>

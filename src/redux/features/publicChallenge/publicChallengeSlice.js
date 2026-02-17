@@ -216,7 +216,12 @@ export const registerUser = createAsyncThunk(
       const response = await registerForChallenge(registrationData);
       return response;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Registration failed');
+      const data = error.response?.data;
+      const message = data?.message || 'Registration failed';
+      if (data?.already_registered === true) {
+        return rejectWithValue({ message, already_registered: true });
+      }
+      return rejectWithValue(message);
     }
   }
 );

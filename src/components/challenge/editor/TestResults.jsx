@@ -417,43 +417,11 @@ const TestResults = ({
                 )}
 
                 {/* Sample Run Results / Test Case Details (Only if NOT a submission or if needed for debugging) */}
-                {hasValidResults && !isSubmission && !loading?.sampleRun && (
+                {hasValidResults && !isSubmission && !loading?.sampleRun && tests[selectedTestCase] && (() => {
+                  const selectedTest = tests[selectedTestCase];
+                  const isErrorTest = selectedTest.status !== 'WA' && selectedTest.status !== 'AC';
+                  return (
                   <div className="space-y-4">
-                    {/* Summary: passed, failed, remaining */}
-                    {summary && (
-                      <div className={`rounded-lg p-3 sm:p-4 ${allPassed ? 'bg-green-50 border border-green-200' : 'bg-yellow-50 border border-yellow-200'
-                        }`}>
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div>
-                            <p className="text-sm font-semibold text-gray-900">
-                              {allPassed ? 'All tests passed!' : `${passedCount} passed, ${failedCount} failed`}
-                            </p>
-                            {!allPassed && testsExecuted > 0 && (
-                              <p className="text-xs text-gray-600 mt-0.5">
-                                {passedCount} / {testsExecuted} tests passed
-                                {remainingCount > 0 ? ` · ${remainingCount} not run` : ''}
-                              </p>
-                            )}
-                          </div>
-                          {allPassed ? (
-                            <div className="flex items-center gap-2 text-green-700">
-                              <span className="text-xs sm:text-sm font-bold uppercase">Passed</span>
-                              <svg className="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                              </svg>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2 text-yellow-700">
-                              <span className="text-xs sm:text-sm font-bold uppercase">Some failed</span>
-                              <svg className="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                              </svg>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
                     {/* Test Case Tabs - scroll on mobile, touch-friendly */}
                     {tests.length > 0 && (
                       <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
@@ -485,12 +453,57 @@ const TestResults = ({
                       </div>
                     )}
 
-                    {/* Selected Test Case Details */}
-                    {tests[selectedTestCase] && (() => {
+                    {/* Selected Test Case Details: for error tests show only the error block; for WA/AC show input + output */}
+                    {(() => {
                       const test = tests[selectedTestCase];
+                      if (!test) return null;
+                      const isErr = test.status !== 'WA' && test.status !== 'AC';
+                      if (isErr) {
+                        /* Error only: no summary, no input, no tabs — just the error message */
+                        return (
+                          <div className="bg-red-50 border border-red-300 rounded-lg p-3 sm:p-4">
+                            <div className="flex items-start gap-3">
+                              <div className="shrink-0">
+                                {test.status === 'TLE' ? (
+                                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                ) : test.status === 'MLE' ? (
+                                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                                  </svg>
+                                ) : test.status === 'CE' ? (
+                                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                  </svg>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs sm:text-sm font-semibold text-red-800 mb-1.5 sm:mb-2">
+                                  {test.status === 'RE' ? 'Runtime Error' :
+                                    test.status === 'TLE' ? 'Time Limit Exceeded' :
+                                      test.status === 'MLE' ? 'Memory Limit Exceeded' :
+                                        test.status === 'CE' ? 'Compilation Error' : 'Error'}
+                                </div>
+                                {(test.error_message && errorToDisplayString(test.error_message).trim()) ? (
+                                  <pre className="text-xs text-red-700 whitespace-pre-wrap font-mono bg-red-100/50 p-2 rounded border border-red-200 overflow-x-auto">
+                                    {formatErrorMessage(test.error_message)}
+                                  </pre>
+                                ) : (
+                                  <p className="text-xs text-red-600">No additional details.</p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
                       return (
                         <div className="space-y-3">
-                          {/* Input */}
+                          {/* Input - only for WA/AC */}
                           <div className="bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
                             <div className="bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center gap-2">
                               <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -535,49 +548,8 @@ const TestResults = ({
                             </div>
                           )}
 
-                          {/* Error message for RE/TLE/MLE/CE (hide output comparison for these) */}
-                          {test.status !== 'WA' && test.status !== 'AC' ? (
-                            <div className="bg-red-50 border border-red-300 rounded-lg p-3 sm:p-4">
-                              <div className="flex items-start gap-3">
-                                <div className="shrink-0">
-                                  {test.status === 'TLE' ? (
-                                    <svg className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                  ) : test.status === 'MLE' ? (
-                                    <svg className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                                    </svg>
-                                  ) : test.status === 'CE' ? (
-                                    <svg className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                                    </svg>
-                                  ) : (
-                                    <svg className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                                    </svg>
-                                  )}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-xs sm:text-sm font-semibold text-red-800 mb-1.5 sm:mb-2">
-                                    {test.status === 'RE' ? 'Runtime Error' :
-                                      test.status === 'TLE' ? 'Time Limit Exceeded' :
-                                        test.status === 'MLE' ? 'Memory Limit Exceeded' :
-                                          test.status === 'CE' ? 'Compilation Error' : 'Error'}
-                                  </div>
-                                  {(test.error_message && errorToDisplayString(test.error_message).trim()) ? (
-                                    <pre className="text-xs text-red-700 whitespace-pre-wrap font-mono bg-red-100/50 p-2 rounded border border-red-200 overflow-x-auto">
-                                      {formatErrorMessage(test.error_message)}
-                                    </pre>
-                                  ) : (
-                                    <p className="text-xs text-red-600">No additional details.</p>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          ) : (
-                            /* Output Comparison - stack on mobile for readability */
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {/* Output Comparison - for WA/AC */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                               <div className={`border rounded-lg overflow-hidden ${test.status === 'AC' ? 'border-green-300 bg-green-50' : 'border-gray-300 bg-white'
                                 }`}>
                                 <div className={`px-3 py-2 border-b flex items-center gap-2 ${test.status === 'AC' ? 'bg-green-100 border-green-300' : 'bg-gray-50 border-gray-200'
@@ -612,12 +584,12 @@ const TestResults = ({
                                 </div>
                               </div>
                             </div>
-                          )}
                         </div>
                       );
                     })()}
                   </div>
-                )}
+                  );
+                })()}
 
                 {/* Empty State */}
                 {!sampleRunResult && !loading?.sampleRun && !error && !isSubmission && (

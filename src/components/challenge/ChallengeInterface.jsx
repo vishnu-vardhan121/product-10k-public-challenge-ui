@@ -27,7 +27,7 @@ function useVisualViewportHeight() {
 }
 
 
-// Inline timer component for compact display
+// Inline timer component for compact display (smaller on mobile)
 const CompactTimer = ({ timeLeft }) => {
   const formatUnit = (value) => String(Math.max(0, Number.isFinite(value) ? value : 0)).padStart(2, '0');
   const showTimer = timeLeft && (timeLeft.hours > 0 || timeLeft.minutes > 0 || timeLeft.seconds > 0);
@@ -35,14 +35,14 @@ const CompactTimer = ({ timeLeft }) => {
   if (!showTimer) return null;
 
   return (
-    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${timeLeft.hours === 0 && timeLeft.minutes < 5
+    <div className={`flex items-center gap-1 sm:gap-2 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border shrink-0 ${timeLeft.hours === 0 && timeLeft.minutes < 5
       ? 'bg-red-50 border-red-200 text-red-600'
       : 'bg-orange-50 border-orange-200 text-orange-600'
       }`}>
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
-      <span className="font-mono font-semibold text-sm">
+      <span className="font-mono font-semibold text-xs sm:text-sm whitespace-nowrap">
         {formatUnit(timeLeft.hours)}:{formatUnit(timeLeft.minutes)}:{formatUnit(timeLeft.seconds)}
       </span>
     </div>
@@ -51,8 +51,10 @@ const CompactTimer = ({ timeLeft }) => {
 import MCQTab from "./tabs/MCQTab";
 import CodingProblemsTab from "./tabs/CodingProblemsTab";
 import { FaSpinner, FaExclamationTriangle } from "react-icons/fa";
+import { clearError } from "@/redux/features/publicChallenge/publicChallengeSlice";
+import { appendUtmToPath } from "@/utils/utmParams";
 
-export default function ChallengeInterface({ challengeId }) {
+export default function ChallengeInterface({ challengeId, onSessionInvalid, utmQuery }) {
   const dispatch = useDispatch();
   const [activeTab, setActiveTab] = useState("mcq"); // 'mcq' | 'coding'
   const [selectedProblemId, setSelectedProblemId] = useState(null);
@@ -174,6 +176,21 @@ export default function ChallengeInterface({ challengeId }) {
     }
 
   }, [challengeId, userId, registrationId, activeTab, dispatch, mcqQuestions.length, codingProblems.length, challenge]);
+
+  // When API returns registration/session invalid, send user back to phone/register flow
+  useEffect(() => {
+    const msg = typeof error === "string" ? error : error?.message;
+    if (!msg) return;
+    const lower = String(msg).toLowerCase();
+    if (
+      lower.includes("must be registered") ||
+      lower.includes("invalid user_id or registration_id") ||
+      lower.includes("user_id and registration_id are required")
+    ) {
+      dispatch(clearError());
+      onSessionInvalid?.();
+    }
+  }, [error, dispatch, onSessionInvalid]);
 
   // Set first problem as selected when problems are loaded
   useEffect(() => {
@@ -306,9 +323,9 @@ export default function ChallengeInterface({ challengeId }) {
               />
             </div>
 
-            {/* Home Button */}
+            {/* Home Button (preserve UTMs when present) */}
             <a
-              href="/"
+              href={appendUtmToPath("/", utmQuery || "")}
               className="inline-flex items-center gap-2 sm:gap-3 px-6 sm:px-8 md:px-10 py-3 sm:py-4 md:py-5 bg-orange-500 hover:bg-orange-600 text-white font-bold text-base sm:text-lg md:text-xl rounded-xl sm:rounded-2xl transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-1 min-h-[44px]"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -320,49 +337,20 @@ export default function ChallengeInterface({ challengeId }) {
         </div>
       )}
 
-      {/* Tabs Navigation - Fixed at top, responsive */}
+      {/* Navbar: row 1 = logo + timer + user; row 2 = MCQ / Problems tabs */}
       <div className="flex-shrink-0 bg-white border-b border-gray-200 shadow-sm">
-        {/* Mobile: row 1 = logo + timer/user aligned; row 2 = tabs full width. Desktop: single row */}
-        <div className="flex flex-col gap-0 sm:flex-row sm:items-center sm:justify-between sm:gap-3 px-3 sm:px-4 md:px-6 py-2 sm:py-4">
-          {/* Row 1 on mobile: Logo (left) | Timer + User (right). On desktop: Logo + Tabs (left) */}
-          <div className="flex items-center justify-between min-w-0 sm:justify-start sm:gap-6 md:gap-8">
-            <img src="/logos/10k_logo_black.webp" alt="10000Coders" className="h-8 sm:h-10 md:h-12 object-contain shrink-0" />
-            {/* Tabs - desktop only in this row; mobile gets own row below */}
-            <div className="hidden sm:flex items-center gap-1 overflow-x-auto scrollbar-hide">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`relative px-4 md:px-5 py-2.5 text-sm font-bold transition-all rounded-t-lg whitespace-nowrap min-h-[44px] flex items-center ${activeTab === tab.id
-                    ? "text-orange-600"
-                    : "text-gray-600 hover:text-gray-900"
-                    }`}
-                >
-                  <span className="flex items-center gap-2">
-                    {tab.label}
-                    {tab.count !== undefined && (
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${activeTab === tab.id
-                        ? "bg-orange-100 text-orange-700"
-                        : "bg-gray-100 text-gray-600"
-                        }`}>
-                        {tab.count}
-                      </span>
-                    )}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-          {/* Right: Timer + User - same row as logo on mobile */}
-          <div className="flex items-center justify-end gap-2 sm:gap-4 shrink-0 sm:min-w-0">
+        {/* Row 1: Logo (left) | Timer + User (right) */}
+        <div className="flex items-center justify-between gap-2 px-2 sm:px-4 md:px-6 py-1.5 sm:py-2 min-h-[40px] sm:min-h-[44px]">
+          <img src="/logos/10k_logo_black.webp" alt="10000Coders" className="h-6 sm:h-8 md:h-10 object-contain shrink-0" />
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <CompactTimer timeLeft={timeLeft} />
             {useSelector(state => state.publicChallenge.userName) && (
-              <div className="flex items-center gap-2 pl-2 sm:pl-4 border-l border-gray-200">
+              <div className="flex items-center gap-1.5 sm:gap-2 pl-1.5 sm:pl-3 border-l border-gray-200">
                 <div className="hidden sm:flex flex-col items-end">
-                  <span className="text-xs sm:text-sm font-bold text-gray-900 truncate max-w-[100px] sm:max-w-none">{useSelector(state => state.publicChallenge.userName)}</span>
+                  <span className="text-xs font-bold text-gray-900 truncate max-w-[80px]">{useSelector(state => state.publicChallenge.userName)}</span>
                 </div>
-                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-white shadow-sm border-2 border-white min-w-[32px] min-h-[32px]">
-                  <span className="text-xs sm:text-sm font-bold uppercase">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-white shadow-sm border-2 border-white shrink-0">
+                  <span className="text-[10px] sm:text-xs font-bold uppercase">
                     {useSelector(state => state.publicChallenge.userName).charAt(0)}
                   </span>
                 </div>
@@ -370,22 +358,22 @@ export default function ChallengeInterface({ challengeId }) {
             )}
           </div>
         </div>
-        {/* Mobile only: Tabs on their own row, full width scroll */}
-        <div className="sm:hidden border-t border-gray-100 px-1">
-          <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-hide min-h-[44px]">
+        {/* Row 2: MCQ Questions | Coding Problems */}
+        <div className="border-t border-gray-100 px-1 sm:px-2">
+          <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-hide min-h-[40px]">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`relative px-3 py-2.5 text-xs font-bold transition-all rounded-t-lg whitespace-nowrap min-h-[44px] flex items-center shrink-0 ${activeTab === tab.id
+                className={`relative px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-bold transition-all rounded-t-lg whitespace-nowrap shrink-0 flex items-center ${activeTab === tab.id
                   ? "text-orange-600"
                   : "text-gray-600 hover:text-gray-900"
                   }`}
               >
-                <span className="flex items-center gap-1.5">
+                <span className="flex items-center gap-1.5 sm:gap-2">
                   {tab.label}
                   {tab.count !== undefined && (
-                    <span className={`px-1.5 py-0.5 rounded-full text-xs font-semibold ${activeTab === tab.id
+                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold ${activeTab === tab.id
                       ? "bg-orange-100 text-orange-700"
                       : "bg-gray-100 text-gray-600"
                       }`}>

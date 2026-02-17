@@ -45,16 +45,18 @@ const ChallengeWorkspaceLayout = ({
   challengeId,
   /** When true (e.g. after run/submit), auto-open results on mobile so user sees output without tapping. */
   openResultsOnMobile = false,
+  /** Increments when run/submit starts or result arrives; ensures panel opens every time (not only when prop toggles). */
+  openResultsTrigger = 0,
 }) => {
   const showTimer = timeLeft && (timeLeft.hours > 0 || timeLeft.minutes > 0 || timeLeft.seconds > 0);
 
   // Mobile: collapsible results section (button always visible; content expands below)
   const [mobileResultsOpen, setMobileResultsOpen] = useState(false);
 
-  // Auto-open results on mobile when run/submit has happened so user sees output immediately
+  // Auto-open results drawer on mobile when run/submit starts or result arrives (trigger makes it reliable every time)
   useEffect(() => {
     if (openResultsOnMobile) setMobileResultsOpen(true);
-  }, [openResultsOnMobile]);
+  }, [openResultsOnMobile, openResultsTrigger]);
   // Mobile: keyboard state and viewport height for layout + scroll-into-view
   const { keyboardOpen: mobileKeyboardOpen } = useMobileViewport();
   const editorSectionRef = useRef(null);

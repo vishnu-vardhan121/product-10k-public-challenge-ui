@@ -2,8 +2,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { fetchChallenges } from "@/redux/features/publicChallenge/publicChallengeSlice";
 import { debounce } from "@/utils/debounce";
+import { getUtmQueryString, appendUtmToPath } from "@/utils/utmParams";
 import {
   FaSearch,
   FaCode,
@@ -20,6 +22,8 @@ import { getDisplayParticipantCount, getParticipantLabel } from "@/shared/config
 
 export default function ChallengesPage() {
   const dispatch = useDispatch();
+  const searchParams = useSearchParams();
+  const utmQ = getUtmQueryString(searchParams);
   const { challenges, loading, error } = useSelector((state) => ({
     challenges: state.publicChallenge.challenges,
     loading: state.publicChallenge.loading.challenges,
@@ -354,7 +358,7 @@ export default function ChallengesPage() {
                     <div className="mt-auto">
                       {status.key === "ONGOING" && (
                         <Link
-                          href={`/challenges/interface?id=${challenge.id}`}
+                          href={appendUtmToPath(`/challenges/interface?id=${challenge.id}`, utmQ)}
                           className="flex w-full px-4 py-3 bg-green-600 hover:bg-green-700 text-white text-center rounded-xl transition-all font-bold text-sm items-center justify-center gap-2"
                         >
                           Participate
@@ -364,7 +368,7 @@ export default function ChallengesPage() {
 
                       {status.key === "REGISTRATION_OPEN" && (
                         <Link
-                          href={challenge.slug ? `/challenges/register?slug=${challenge.slug}` : `/challenges/register?id=${challenge.id}`}
+                          href={appendUtmToPath(challenge.slug ? `/challenges/register?slug=${challenge.slug}` : `/challenges/register?id=${challenge.id}`, utmQ)}
                           className="flex w-full px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white text-center rounded-xl transition-all font-bold text-sm items-center justify-center gap-2 group/btn"
                         >
                           Register

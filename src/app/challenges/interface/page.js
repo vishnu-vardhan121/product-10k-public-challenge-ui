@@ -29,7 +29,20 @@ import {
   clearVerification,
   getStoredVerifications
 } from "@/utils/verificationStorage";
+import { getUtmQueryString, appendUtmToPath } from "@/utils/utmParams";
 import "@/styles/resizable-panels.css";
+
+/** Basic email format validation (required, has @ and domain). */
+function isValidEmail(value) {
+  if (!value || typeof value !== "string") return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  const at = trimmed.indexOf("@");
+  if (at <= 0 || at === trimmed.length - 1) return false;
+  const domain = trimmed.slice(at + 1);
+  const dot = domain.indexOf(".");
+  return dot > 0 && dot < domain.length - 1;
+}
 
 export default function ChallengeInterfacePage() {
   const searchParams = useSearchParams();
@@ -75,6 +88,7 @@ export default function ChallengeInterfacePage() {
   });
 
   const [showBatchStudentModal, setShowBatchStudentModal] = useState(false);
+  const [fetchSettled, setFetchSettled] = useState(false);
 
   // OTP hook
   const {
@@ -116,6 +130,7 @@ export default function ChallengeInterfacePage() {
         setOtpStep("verified");
         setPhoneLocal(verifiedPhone);
         dispatch(setPhone(verifiedPhone));
+        dispatch(clearError());
 
         dispatch(checkRegistrationStatus({ challengeId: parseInt(challengeId), phone: verifiedPhone }))
           .unwrap()
@@ -155,10 +170,30 @@ export default function ChallengeInterfacePage() {
                   setIsRegistered(true);
                   setOtpStep("verified");
                 })
-                .catch((err) => {
-                  console.error('Failed to register after stored OTP verification:', err);
-                  setOtpStep("phone");
-                  setOtpVerified(false);
+                .catch(async (err) => {
+                  if (err?.already_registered) {
+                    try {
+                      const statusResult = await dispatch(checkRegistrationStatus({ challengeId: parseInt(challengeId), phone: verifiedPhone })).unwrap();
+                      if (statusResult?.is_registered && statusResult?.registration_id) {
+                        dispatch(clearError());
+                        if (statusResult.user_id) dispatch(setUserId(statusResult.user_id));
+                        dispatch(setRegistrationId(statusResult.registration_id));
+                        if (statusResult.user_name) dispatch(setUserName(statusResult.user_name));
+                        setIsRegistered(true);
+                        setOtpStep("verified");
+                      } else {
+                        setOtpStep("phone");
+                        setOtpVerified(false);
+                      }
+                    } catch (_) {
+                      setOtpStep("phone");
+                      setOtpVerified(false);
+                    }
+                  } else {
+                    console.error('Failed to register after stored OTP verification:', err);
+                    setOtpStep("phone");
+                    setOtpVerified(false);
+                  }
                 });
             } else {
               setShowRegistrationForm(true);
@@ -171,10 +206,40 @@ export default function ChallengeInterfacePage() {
   }, [challengeId, dispatch, reduxPhone]);
 
   useEffect(() => {
-    if (challengeId) dispatch(fetchChallengeDetails(challengeId));
-    else setLocalError("Challenge ID is required");
+    if (challengeId) {
+      setFetchSettled(false);
+      dispatch(fetchChallengeDetails(challengeId));
+    } else {
+      setLocalError("Challenge ID is required");
+    }
     return () => dispatch(clearError());
   }, [challengeId, dispatch]);
+
+  // Mark fetch as settled when loading finishes (so we don't redirect before first load completes)
+  useEffect(() => {
+    if (challengeId && !challengeLoading) setFetchSettled(true);
+  }, [challengeId, challengeLoading]);
+
+  // Redirect to challenges list when no id, fetch failed, or challenge has ended (preserve UTMs)
+  useEffect(() => {
+    const utmQ = getUtmQueryString(searchParams);
+    const challengesPath = appendUtmToPath("/challenges", utmQ);
+
+    if (!challengeId) {
+      router.replace(challengesPath);
+      return;
+    }
+    if (!challengeLoading && challengeId && fetchSettled) {
+      if (!challenge) {
+        router.replace(challengesPath);
+        return;
+      }
+      const endAt = challenge?.challenge_end_at;
+      if (endAt && new Date(endAt).getTime() <= Date.now()) {
+        router.replace(challengesPath);
+      }
+    }
+  }, [challengeId, challengeLoading, challenge, fetchSettled, router, searchParams]);
 
   useEffect(() => {
     if (isVerified) {
@@ -205,6 +270,7 @@ export default function ChallengeInterfacePage() {
 
       // Handle new user case
       if (result.details_required) {
+        dispatch(clearError());
         setShowRegistrationForm(true);
         setOtpStep("register");
         return;
@@ -218,6 +284,7 @@ export default function ChallengeInterfacePage() {
       if (user_id) dispatch(setUserId(user_id));
 
       if (result.is_registered && registration_id) {
+        dispatch(clearError());
         dispatch(setRegistrationId(registration_id));
         setPendingAction("enter_registered");
         setIsRegistered(false);
@@ -228,14 +295,16 @@ export default function ChallengeInterfacePage() {
 
       // User exists but not registered: verify OTP first, then register
       if (!userName) {
+        dispatch(clearError());
         setShowRegistrationForm(true);
         setOtpStep("register");
         return;
       }
 
+      dispatch(clearError());
       setPendingRegistrationData({
         name: userName,
-        phone: phone.trim(),
+        phone: formatPhoneNumber(phone) || phone.trim(),
         challenge_id: parseInt(challengeId),
         ...getUtmParams(),
       });
@@ -324,7 +393,25 @@ export default function ChallengeInterfacePage() {
           setLocalError(null);
           return;
         } catch (error) {
-          setLocalError(error?.message || "Registration failed. Please try again.");
+          if (error?.already_registered) {
+            try {
+              const statusResult = await dispatch(checkRegistrationStatus({ challengeId: parseInt(challengeId), phone: formatPhoneNumber(phone) })).unwrap();
+              if (statusResult?.is_registered && statusResult?.registration_id) {
+                dispatch(clearError());
+                if (statusResult.user_id) dispatch(setUserId(statusResult.user_id));
+                dispatch(setRegistrationId(statusResult.registration_id));
+                if (statusResult.user_name) dispatch(setUserName(statusResult.user_name));
+                setIsRegistered(true);
+                setOtpVerified(true);
+                setOtpStep("verified");
+                setPendingRegistrationData(null);
+                setPendingAction(null);
+                setLocalError(null);
+                return;
+              }
+            } catch (_) {}
+          }
+          setLocalError(typeof error === 'object' && error?.message ? error.message : error?.message || "Registration failed. Please try again.");
           setOtpVerified(false);
           setOtpStep("phone");
           setPendingRegistrationData(null);
@@ -351,14 +438,22 @@ export default function ChallengeInterfacePage() {
       setLocalError("Please enter your name");
       return;
     }
+    if (!email.trim()) {
+      setLocalError("Please enter your email");
+      return;
+    }
+    if (!isValidEmail(email)) {
+      setLocalError("Please enter a valid email address");
+      return;
+    }
     setLocalError(null);
     dispatch(clearError());
 
     const registrationData = {
       name: name.trim(),
-      email: email.trim() || undefined,
+      email: email.trim(),
       college_name: collegeName.trim() || undefined,
-      phone: phone.trim(),
+      phone: formatPhoneNumber(phone) || phone.trim(),
       challenge_id: parseInt(challengeId),
       ...getUtmParams(),
     };
@@ -375,7 +470,22 @@ export default function ChallengeInterfacePage() {
         setShowRegistrationForm(false);
         setOtpStep("verified");
       } catch (error) {
-        setLocalError(error?.message || "Registration failed. Please try again.");
+        if (error?.already_registered) {
+          try {
+            const statusResult = await dispatch(checkRegistrationStatus({ challengeId: parseInt(challengeId), phone: formatPhoneNumber(phone) })).unwrap();
+            if (statusResult?.is_registered && statusResult?.registration_id) {
+              dispatch(clearError());
+              if (statusResult.user_id) dispatch(setUserId(statusResult.user_id));
+              dispatch(setRegistrationId(statusResult.registration_id));
+              if (statusResult.user_name) dispatch(setUserName(statusResult.user_name));
+              setIsRegistered(true);
+              setShowRegistrationForm(false);
+              setOtpStep("verified");
+              return;
+            }
+          } catch (_) {}
+        }
+        setLocalError(typeof error === 'object' && error?.message ? error.message : error?.message || "Registration failed. Please try again.");
       }
       return;
     }
@@ -388,25 +498,43 @@ export default function ChallengeInterfacePage() {
     await handleSendOTP();
   };
 
-  const displayError = localError || reduxError || otpError;
+  const rawError = localError || reduxError || otpError;
+  const displayError = !rawError ? null : typeof rawError === "string" ? rawError : (rawError?.message != null ? String(rawError.message) : "Something went wrong.");
 
-  // Loading Screen
-  if (challengeLoading) {
+  const challengeEnded = challenge?.challenge_end_at && new Date(challenge.challenge_end_at).getTime() <= Date.now();
+  const shouldRedirect = !challengeId || (fetchSettled && !challengeLoading && (!challenge || challengeEnded));
+  const waitingForFetch = challengeId && !fetchSettled;
+
+  // Loading Screen (while fetching, or while redirecting so we don't flash the form)
+  if (challengeLoading || waitingForFetch || shouldRedirect) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">Preparing your challenge environment...</p>
+          <p className="text-gray-600 font-medium">
+            {shouldRedirect && !challengeLoading ? "Taking you to challenges..." : "Preparing your challenge environment..."}
+          </p>
         </div>
       </div>
     );
   }
 
+  const handleSessionInvalid = () => {
+    setLocalError(null);
+    dispatch(clearError());
+    setIsRegistered(false);
+    setOtpVerified(false);
+    setOtpStep("phone");
+    setShowRegistrationForm(false);
+    setPendingRegistrationData(null);
+    setPendingAction(null);
+  };
+
   // Challenge Verified -> Main Interface
   if (otpVerified && isRegistered) {
     return (
       <div className="fixed inset-0 overflow-hidden">
-        <ChallengeInterface challengeId={challengeId} />
+        <ChallengeInterface challengeId={challengeId} onSessionInvalid={handleSessionInvalid} utmQuery={getUtmQueryString(searchParams)} />
       </div>
     );
   }
@@ -574,7 +702,7 @@ export default function ChallengeInterfacePage() {
                   
                   <div>
                     <label htmlFor="email" className="block text-sm font-semibold text-gray-900 mb-2">
-                      Email (Optional)
+                      Email *
                     </label>
                     <input
                       type="email"
@@ -583,6 +711,7 @@ export default function ChallengeInterfacePage() {
                       onChange={(e) => setEmail(e.target.value)}
                       className="block w-full px-4 py-3 sm:py-3.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all outline-none font-medium"
                       placeholder="john@example.com"
+                      required
                     />
                   </div>
 
@@ -604,7 +733,7 @@ export default function ChallengeInterfacePage() {
                 <div className="mt-6 space-y-3">
                   <button
                     onClick={handleRegisterWithDetails}
-                    disabled={!name.trim()}
+                    disabled={!name.trim() || !email.trim() || !isValidEmail(email)}
                     className="w-full flex items-center justify-center px-6 sm:px-8 py-3.5 sm:py-4 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg disabled:bg-gray-300 disabled:cursor-not-allowed transform hover:-translate-y-0.5 active:translate-y-0"
                   >
                     Register & Continue

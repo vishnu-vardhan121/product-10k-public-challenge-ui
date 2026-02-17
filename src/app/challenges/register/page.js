@@ -39,6 +39,14 @@ import {
 import { formatPhoneNumber, formatPhoneInputDisplay, parsePhoneInputValue, validateIndianPhoneNumber } from "@/services/phoneUtils";
 import { motion, AnimatePresence } from "framer-motion";
 
+/** Basic email format validation (required, has @ and domain). */
+function isValidEmail(value) {
+    if (!value || typeof value !== "string") return false;
+    const trimmed = value.trim();
+    if (!trimmed) return false;
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
+}
+
 export default function RegisterPage() {
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -260,10 +268,11 @@ export default function RegisterPage() {
             return;
         }
 
-        if (
-            formData.email.trim() &&
-            !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)
-        ) {
+        if (!formData.email.trim()) {
+            setError("Please enter your email");
+            return;
+        }
+        if (!isValidEmail(formData.email)) {
             setError("Please enter a valid email address");
             return;
         }
@@ -312,9 +321,7 @@ export default function RegisterPage() {
                     : null,
             };
 
-            if (!registrationData.email || !registrationData.email.trim()) {
-                delete registrationData.email;
-            }
+            registrationData.email = registrationData.email.trim();
 
             const response = await registerForChallenge(registrationData);
 
@@ -662,7 +669,7 @@ export default function RegisterPage() {
 
                                         <div>
                                             <label htmlFor="email" className="block text-sm font-semibold text-gray-900 mb-2">
-                                                Email Address
+                                                Email Address <span className="text-red-500">*</span>
                                             </label>
                                             <input
                                                 type="email"
@@ -670,6 +677,7 @@ export default function RegisterPage() {
                                                 name="email"
                                                 value={formData.email}
                                                 onChange={handleInputChange}
+                                                required
                                                 className="w-full min-h-[48px] sm:min-h-0 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all font-medium text-base text-gray-900"
                                                 placeholder="name@example.com"
                                             />
@@ -839,7 +847,7 @@ export default function RegisterPage() {
                                     <div className="pt-6 sm:pt-8 mt-6 sm:mt-8 border-t border-gray-100">
                                         <button
                                             type="submit"
-                                            disabled={submitting || otpLoading || (otpStep === "otp" && !otpVerified && otpCode.length !== 6)}
+                                            disabled={submitting || otpLoading || (otpStep === "otp" && !otpVerified && otpCode.length !== 6) || !formData.name.trim() || !formData.email.trim() || !isValidEmail(formData.email)}
                                             className={`w-full min-h-[48px] sm:min-h-0 py-4 rounded-xl font-bold text-base sm:text-lg shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 touch-manipulation ${!submitting && !otpLoading
                                                 ? "bg-gradient-to-r from-orange-600 to-orange-500 text-white shadow-orange-500/25 hover:shadow-orange-500/40"
                                                 : "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"

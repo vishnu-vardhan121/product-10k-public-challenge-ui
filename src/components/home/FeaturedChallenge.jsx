@@ -2,7 +2,9 @@
 import React, { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { fetchChallenges } from "@/redux/features/publicChallenge/publicChallengeSlice";
+import { getUtmQueryString, appendUtmToPath } from "@/utils/utmParams";
 import {
     FaCalendarAlt,
     FaArrowRight,
@@ -19,6 +21,8 @@ import { getDisplayParticipantCount, getParticipantLabel } from "@/shared/config
 
 const FeaturedChallenge = () => {
     const dispatch = useDispatch();
+    const searchParams = useSearchParams();
+    const utmQ = getUtmQueryString(searchParams);
     const { challenges, loading, error } = useSelector((state) => ({
         challenges: state.publicChallenge.challenges,
         loading: state.publicChallenge.loading.challenges,
@@ -190,7 +194,7 @@ const FeaturedChallenge = () => {
                             <div className="flex flex-col sm:flex-row gap-4">
                                 {isOngoing && (
                                     <Link
-                                        href={`/challenges/interface?id=${featured.id}`}
+                                        href={appendUtmToPath(`/challenges/interface?id=${featured.id}`, utmQ)}
                                         className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-green-500/20 transition-all transform hover:-translate-y-1 w-full sm:w-auto"
                                     >
                                         Enter Active Challenge
@@ -200,7 +204,7 @@ const FeaturedChallenge = () => {
 
                                 {isRegOpen && (
                                     <Link
-                                        href={featured.slug ? `/challenges/register?slug=${featured.slug}` : `/challenges/register?id=${featured.id}`}
+                                        href={appendUtmToPath(featured.slug ? `/challenges/register?slug=${featured.slug}` : `/challenges/register?id=${featured.id}`, utmQ)}
                                         className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-orange-500/20 transition-all transform hover:-translate-y-1 w-full sm:w-auto"
                                     >
                                         Register Now

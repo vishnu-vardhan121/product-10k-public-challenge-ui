@@ -11,7 +11,6 @@ import {
   FaSpinner,
   FaCheckCircle,
   FaCode,
-  FaSave,
 } from "react-icons/fa";
 import { generateCodeTemplate, getSupportedLanguages } from "@/utils/codeTemplates";
 import { debounce } from "@/utils/debounce";
@@ -80,6 +79,8 @@ export default function CodingProblemsTab({
   const [sampleRunError, setSampleRunError] = useState(null);
   const [submissionResult, setSubmissionResult] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
+  /** Increment when run/submit starts or result arrives so mobile results panel opens reliably */
+  const [openResultsTrigger, setOpenResultsTrigger] = useState(0);
 
   const lastDraftFetchKeyRef = useRef(null);
   const lastSavedByKeyRef = useRef({});
@@ -408,6 +409,7 @@ export default function CodingProblemsTab({
     setSampleRunResult(null);
     setSubmissionResult(null);
     setError(null);
+    setOpenResultsTrigger((t) => t + 1);
 
     try {
       const result = await dispatch(
@@ -430,14 +432,18 @@ export default function CodingProblemsTab({
             status: runnerResult.status !== false,
             data: runnerResult.data
           });
+          setOpenResultsTrigger((t) => t + 1);
         } else {
           setSampleRunError(runnerResult?.message || "Sample run failed");
+          setOpenResultsTrigger((t) => t + 1);
         }
       } else {
         setSampleRunError(result.message || "Sample run failed");
+        setOpenResultsTrigger((t) => t + 1);
       }
     } catch (err) {
       setSampleRunError(typeof err === 'string' ? err : (err?.message || "Failed to run code. Please try again."));
+      setOpenResultsTrigger((t) => t + 1);
     } finally {
       setSampleRunLoading(false);
     }
@@ -456,6 +462,7 @@ export default function CodingProblemsTab({
     setError(null);
     setSampleRunResult(null);
     setSubmissionResult(null);
+    setOpenResultsTrigger((t) => t + 1);
 
     try {
       const result = await dispatch(
@@ -472,6 +479,7 @@ export default function CodingProblemsTab({
 
       if (result.success && result.data) {
         setSubmissionResult(result.data);
+        setOpenResultsTrigger((t) => t + 1);
         setSubmitted(true);
         // If AC, exit edit mode (lock again on solved)
         if (result.data?.execution_result?.verdict === 'AC' || result.data?.submission?.verdict === 'AC') {
@@ -483,9 +491,11 @@ export default function CodingProblemsTab({
         }, 3000);
       } else {
         setError(result.message || "Submission failed");
+        setOpenResultsTrigger((t) => t + 1);
       }
     } catch (err) {
       setError(err?.message || "Failed to submit solution. Please try again.");
+      setOpenResultsTrigger((t) => t + 1);
     } finally {
       setSubmitting(false);
     }
@@ -712,17 +722,6 @@ export default function CodingProblemsTab({
           </div>
 
           <div className="flex items-center justify-end gap-1.5 sm:gap-2 min-w-0">
-            {saveStatus === "saving" && (
-              <span className="text-gray-400 flex items-center gap-1.5 text-xs shrink-0">
-                <FaSpinner className="animate-spin shrink-0" /> <span className="hidden sm:inline">Saving...</span>
-              </span>
-            )}
-            {saveStatus === "saved" && (
-              <span className="text-green-500 flex items-center gap-1.5 text-xs shrink-0">
-                <FaSave className="shrink-0" /> <span className="hidden sm:inline">Saved!</span>
-              </span>
-            )}
-
             {Boolean(selectedProblem?.is_solved && solvedSubmission) && isSolvedReadOnly && (
               <button
                 type="button"
@@ -789,7 +788,7 @@ export default function CodingProblemsTab({
     />
   );
 
-  const hasResultsToShow = !!(sampleRunResult || submissionResult || sampleRunLoading || submitting || sampleRunError || error);
+  const openResultsOnMobile = !!(sampleRunResult || submissionResult || sampleRunLoading || submitting || sampleRunError || error);
 
   return (
     <ChallengeWorkspaceLayout
@@ -800,7 +799,8 @@ export default function CodingProblemsTab({
       resultsPanelContent={resultsPanelContent}
       onHorizontalDrag={handlePanelDrag}
       onVerticalDrag={handlePanelDrag}
-      openResultsOnMobile={hasResultsToShow}
+      openResultsOnMobile={openResultsOnMobile}
+      openResultsTrigger={openResultsTrigger}
     />
   );
 }

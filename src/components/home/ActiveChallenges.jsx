@@ -18,11 +18,15 @@ import { motion } from "framer-motion";
 import { useServerTime } from "@/hooks/useServerTime";
 import RegistrationModal from "@/components/registration/RegistrationModal";
 import { registerUser } from "@/redux/features/publicChallenge/publicChallengeSlice";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getDisplayParticipantCount, getParticipantLabel } from "@/shared/config";
+import { getUtmQueryString, appendUtmToPath } from "@/utils/utmParams";
 
 const ActiveChallenges = () => {
   const dispatch = useDispatch();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const utmQ = getUtmQueryString(searchParams);
   const { challenges, loading, error, registerLoading } = useSelector((state) => ({
     challenges: state.publicChallenge.challenges,
     loading: state.publicChallenge.loading.challenges,
@@ -30,7 +34,6 @@ const ActiveChallenges = () => {
     registerLoading: state.publicChallenge.loading.register,
   }));
 
-  const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedChallenge, setSelectedChallenge] = useState(null);
 
@@ -54,10 +57,10 @@ const ActiveChallenges = () => {
 
     if (result.meta.requestStatus === 'fulfilled') {
       closeRegistration();
-      // If challenge is ongoing, redirect to interface immediately
+      // If challenge is ongoing, redirect to interface immediately (preserve UTMs)
       const status = getChallengeStatus(selectedChallenge);
       if (status.text === "Ongoing") {
-        router.push(`/challenges/interface?id=${selectedChallenge.id}`);
+        router.push(appendUtmToPath(`/challenges/interface?id=${selectedChallenge.id}`, utmQ));
       } else {
         // Just refresh the list to show registered status
         dispatch(fetchChallenges());
@@ -302,7 +305,7 @@ const ActiveChallenges = () => {
                         {status.text === "Ongoing" && (
                           challenge.is_registered ? (
                             <Link
-                              href={`/challenges/interface?id=${challenge.id}`}
+                              href={appendUtmToPath(`/challenges/interface?id=${challenge.id}`, utmQ)}
                               className="flex-1 px-4 py-3 bg-gray-900 text-white text-center rounded-lg hover:bg-gray-800 transition-all font-semibold text-sm flex items-center justify-center gap-2 group/btn"
                             >
                               Participate
