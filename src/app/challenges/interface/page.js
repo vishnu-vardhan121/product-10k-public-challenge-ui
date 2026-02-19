@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -89,6 +89,9 @@ export default function ChallengeInterfacePage() {
 
   const [showBatchStudentModal, setShowBatchStudentModal] = useState(false);
   const [fetchSettled, setFetchSettled] = useState(false);
+  const redirectFallbackRef = useRef(null);
+  // Prevent restore effect from overwriting state after user has already registered (avoids OTP screen / session expired)
+  const userAlreadyRegisteredRef = useRef(false);
 
   // OTP hook
   const {
@@ -104,105 +107,111 @@ export default function ChallengeInterfacePage() {
     clearError: clearOtpError,
   } = usePhoneOTP({ blockBatchStudents: true });
 
-  // Check verification on mount
+  // Check verification on mount (restore from storage and sync registration status)
   useEffect(() => {
-    if (challengeId) {
-      let verifiedPhone = null;
-      if (reduxPhone) {
-        if (isVerifiedForChallenge(reduxPhone, challengeId)) verifiedPhone = reduxPhone;
-      }
-      if (!verifiedPhone) {
-        const verifications = getStoredVerifications();
-        const challengeKey = String(challengeId);
-        for (const key in verifications) {
-          if (verifications[key].challengeId === challengeKey) {
-            if (isVerifiedForChallenge(verifications[key].phone, challengeId)) {
-              verifiedPhone = verifications[key].phone;
-              break;
-            }
-          }
+    if (!challengeId) return;
+    // Do not overwrite state if user has already registered in this session (avoids showing OTP again / "session ended")
+    if (userAlreadyRegisteredRef.current) return;
+
+    let verifiedPhone = null;
+    if (reduxPhone && isVerifiedForChallenge(reduxPhone, challengeId)) verifiedPhone = reduxPhone;
+    if (!verifiedPhone) {
+      const verifications = getStoredVerifications();
+      const challengeKey = String(challengeId);
+      for (const key in verifications) {
+        if (verifications[key].challengeId === challengeKey && isVerifiedForChallenge(verifications[key].phone, challengeId)) {
+          verifiedPhone = verifications[key].phone;
+          break;
         }
       }
+    }
 
-      if (verifiedPhone) {
-        setOtpVerified(true);
-        setIsRegistered(false);
-        setOtpStep("verified");
-        setPhoneLocal(verifiedPhone);
-        dispatch(setPhone(verifiedPhone));
-        dispatch(clearError());
+    if (!verifiedPhone) return;
 
-        dispatch(checkRegistrationStatus({ challengeId: parseInt(challengeId), phone: verifiedPhone }))
-          .unwrap()
-          .then((result) => {
-            const { user_id, registration_id } = result;
-            const userName = result.user_name;
+    setOtpVerified(true);
+    setIsRegistered(false);
+    setOtpStep("verified");
+    setPhoneLocal(verifiedPhone);
+    dispatch(setPhone(verifiedPhone));
+    dispatch(clearError());
 
-            if (userName) dispatch(setUserName(userName));
-            if (user_id) dispatch(setUserId(user_id));
+    dispatch(checkRegistrationStatus({ challengeId: parseInt(challengeId), phone: verifiedPhone }))
+      .unwrap()
+      .then((result) => {
+        // Stale response: user may have already registered via form; do not overwrite
+        if (userAlreadyRegisteredRef.current) return;
 
-            if (result.details_required) {
-              setShowRegistrationForm(true);
-              setOtpStep("register");
-              return;
-            }
+        const { user_id, registration_id } = result;
+        const userName = result.user_name;
 
-            if (result.is_registered && registration_id) {
-              dispatch(setRegistrationId(registration_id));
+        if (userName) dispatch(setUserName(userName));
+        if (user_id) dispatch(setUserId(user_id));
+
+        if (result.details_required) {
+          setShowRegistrationForm(true);
+          setOtpStep("register");
+          return;
+        }
+
+        if (result.is_registered && registration_id) {
+          dispatch(setRegistrationId(registration_id));
+          userAlreadyRegisteredRef.current = true;
+          setIsRegistered(true);
+          setOtpStep("verified");
+          return;
+        }
+
+        // OTP already verified, but registration doesn't exist yet -> register now
+        if (userName) {
+          const regData = {
+            name: userName,
+            phone: verifiedPhone,
+            challenge_id: parseInt(challengeId),
+            ...getUtmParams(),
+          };
+          dispatch(registerUser(regData))
+            .unwrap()
+            .then((regResult) => {
+              if (userAlreadyRegisteredRef.current) return;
+              if (regResult?.user_id) dispatch(setUserId(regResult.user_id));
+              if (regResult?.registration_id) dispatch(setRegistrationId(regResult.registration_id));
+              userAlreadyRegisteredRef.current = true;
               setIsRegistered(true);
               setOtpStep("verified");
-              return;
-            }
-
-            // OTP already verified, but registration doesn't exist yet -> register now
-            if (userName) {
-              const regData = {
-                name: userName,
-                phone: verifiedPhone,
-                challenge_id: parseInt(challengeId),
-                ...getUtmParams(),
-              };
-              dispatch(registerUser(regData))
-                .unwrap()
-                .then((regResult) => {
-                  if (regResult?.user_id) dispatch(setUserId(regResult.user_id));
-                  if (regResult?.registration_id) dispatch(setRegistrationId(regResult.registration_id));
-                  setIsRegistered(true);
-                  setOtpStep("verified");
-                })
-                .catch(async (err) => {
-                  if (err?.already_registered) {
-                    try {
-                      const statusResult = await dispatch(checkRegistrationStatus({ challengeId: parseInt(challengeId), phone: verifiedPhone })).unwrap();
-                      if (statusResult?.is_registered && statusResult?.registration_id) {
-                        dispatch(clearError());
-                        if (statusResult.user_id) dispatch(setUserId(statusResult.user_id));
-                        dispatch(setRegistrationId(statusResult.registration_id));
-                        if (statusResult.user_name) dispatch(setUserName(statusResult.user_name));
-                        setIsRegistered(true);
-                        setOtpStep("verified");
-                      } else {
-                        setOtpStep("phone");
-                        setOtpVerified(false);
-                      }
-                    } catch (_) {
-                      setOtpStep("phone");
-                      setOtpVerified(false);
-                    }
+            })
+            .catch(async (err) => {
+              if (userAlreadyRegisteredRef.current) return;
+              if (err?.already_registered) {
+                try {
+                  const statusResult = await dispatch(checkRegistrationStatus({ challengeId: parseInt(challengeId), phone: verifiedPhone })).unwrap();
+                  if (statusResult?.is_registered && statusResult?.registration_id) {
+                    dispatch(clearError());
+                    if (statusResult.user_id) dispatch(setUserId(statusResult.user_id));
+                    dispatch(setRegistrationId(statusResult.registration_id));
+                    if (statusResult.user_name) dispatch(setUserName(statusResult.user_name));
+                    userAlreadyRegisteredRef.current = true;
+                    setIsRegistered(true);
+                    setOtpStep("verified");
                   } else {
-                    console.error('Failed to register after stored OTP verification:', err);
                     setOtpStep("phone");
                     setOtpVerified(false);
                   }
-                });
-            } else {
-              setShowRegistrationForm(true);
-              setOtpStep("register");
-            }
-          })
-          .catch((err) => console.error('Failed to fetch registration details:', err));
-      }
-    }
+                } catch (_) {
+                  setOtpStep("phone");
+                  setOtpVerified(false);
+                }
+              } else {
+                console.error('Failed to register after stored OTP verification:', err);
+                setOtpStep("phone");
+                setOtpVerified(false);
+              }
+            });
+        } else {
+          setShowRegistrationForm(true);
+          setOtpStep("register");
+        }
+      })
+      .catch((err) => console.error('Failed to fetch registration details:', err));
   }, [challengeId, dispatch, reduxPhone]);
 
   useEffect(() => {
@@ -222,23 +231,39 @@ export default function ChallengeInterfacePage() {
 
   // Redirect to challenges list when no id, fetch failed, or challenge has ended (preserve UTMs)
   useEffect(() => {
+    if (redirectFallbackRef.current) {
+      clearTimeout(redirectFallbackRef.current);
+      redirectFallbackRef.current = null;
+    }
     const utmQ = getUtmQueryString(searchParams);
     const challengesPath = appendUtmToPath("/challenges", utmQ);
 
-    if (!challengeId) {
+    const doRedirect = () => {
       router.replace(challengesPath);
-      return;
+      // Fallback: if Next.js router doesn't navigate within 2.5s, force navigation (avoids stuck "Taking you to challenges...")
+      redirectFallbackRef.current = setTimeout(() => {
+        if (typeof window !== "undefined") window.location.assign(challengesPath);
+      }, 2500);
+    };
+
+    if (!challengeId) {
+      doRedirect();
+      return () => { if (redirectFallbackRef.current) clearTimeout(redirectFallbackRef.current); };
     }
     if (!challengeLoading && challengeId && fetchSettled) {
       if (!challenge) {
-        router.replace(challengesPath);
-        return;
+        doRedirect();
+        return () => { if (redirectFallbackRef.current) clearTimeout(redirectFallbackRef.current); };
       }
-      const endAt = challenge?.challenge_end_at;
+      // Only treat as ended when the loaded challenge matches this page (avoid stale Redux challenge from another id)
+      const isCurrentChallenge = challenge && String(challenge.id) === String(challengeId);
+      const endAt = isCurrentChallenge ? challenge.challenge_end_at : null;
       if (endAt && new Date(endAt).getTime() <= Date.now()) {
-        router.replace(challengesPath);
+        doRedirect();
+        return () => { if (redirectFallbackRef.current) clearTimeout(redirectFallbackRef.current); };
       }
     }
+    return () => { if (redirectFallbackRef.current) clearTimeout(redirectFallbackRef.current); };
   }, [challengeId, challengeLoading, challenge, fetchSettled, router, searchParams]);
 
   useEffect(() => {
@@ -385,6 +410,7 @@ export default function ChallengeInterfacePage() {
           if (regResult?.registration_id) dispatch(setRegistrationId(regResult.registration_id));
           if (pendingRegistrationData?.name) dispatch(setUserName(pendingRegistrationData.name));
 
+          userAlreadyRegisteredRef.current = true;
           setIsRegistered(true);
           setOtpVerified(true);
           setOtpStep("verified");
@@ -401,6 +427,7 @@ export default function ChallengeInterfacePage() {
                 if (statusResult.user_id) dispatch(setUserId(statusResult.user_id));
                 dispatch(setRegistrationId(statusResult.registration_id));
                 if (statusResult.user_name) dispatch(setUserName(statusResult.user_name));
+                userAlreadyRegisteredRef.current = true;
                 setIsRegistered(true);
                 setOtpVerified(true);
                 setOtpStep("verified");
@@ -422,6 +449,7 @@ export default function ChallengeInterfacePage() {
 
       // Already registered: OTP verified, allow entry
       if (pendingAction === "enter_registered") {
+        userAlreadyRegisteredRef.current = true;
         setIsRegistered(true);
       }
 
@@ -466,6 +494,7 @@ export default function ChallengeInterfacePage() {
         if (result?.registration_id) dispatch(setRegistrationId(result.registration_id));
         dispatch(setUserName(registrationData.name));
         dispatch(setPhone(phone));
+        userAlreadyRegisteredRef.current = true;
         setIsRegistered(true);
         setShowRegistrationForm(false);
         setOtpStep("verified");
@@ -478,6 +507,7 @@ export default function ChallengeInterfacePage() {
               if (statusResult.user_id) dispatch(setUserId(statusResult.user_id));
               dispatch(setRegistrationId(statusResult.registration_id));
               if (statusResult.user_name) dispatch(setUserName(statusResult.user_name));
+              userAlreadyRegisteredRef.current = true;
               setIsRegistered(true);
               setShowRegistrationForm(false);
               setOtpStep("verified");
@@ -501,7 +531,9 @@ export default function ChallengeInterfacePage() {
   const rawError = localError || reduxError || otpError;
   const displayError = !rawError ? null : typeof rawError === "string" ? rawError : (rawError?.message != null ? String(rawError.message) : "Something went wrong.");
 
-  const challengeEnded = challenge?.challenge_end_at && new Date(challenge.challenge_end_at).getTime() <= Date.now();
+  // Only consider ended when loaded challenge matches this page (avoid stale state after refresh/navigation)
+  const isCurrentChallenge = challenge && String(challenge.id) === String(challengeId);
+  const challengeEnded = isCurrentChallenge && challenge?.challenge_end_at && new Date(challenge.challenge_end_at).getTime() <= Date.now();
   const shouldRedirect = !challengeId || (fetchSettled && !challengeLoading && (!challenge || challengeEnded));
   const waitingForFetch = challengeId && !fetchSettled;
 
@@ -520,6 +552,7 @@ export default function ChallengeInterfacePage() {
   }
 
   const handleSessionInvalid = () => {
+    userAlreadyRegisteredRef.current = false;
     setLocalError(null);
     dispatch(clearError());
     setIsRegistered(false);

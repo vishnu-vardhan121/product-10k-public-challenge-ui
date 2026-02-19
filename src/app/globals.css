@@ -1,2 +1,33 @@
 @import "tailwindcss";
 
+/* Hide scrollbar while keeping scroll (Chrome, Safari, Edge, Firefox) – no side scrollbar, no scroll thumb/icon */
+html {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE / old Edge */
+  overflow-x: hidden;
+}
+html::-webkit-scrollbar {
+  display: none !important; /* Chrome, Safari, Edge */
+  width: 0;
+  height: 0;
+}
+body {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  overflow-x: hidden;
+}
+body::-webkit-scrollbar {
+  display: none !important;
+  width: 0;
+  height: 0;
+}
+/* Landing/main page scroll container: hide scrollbar if it appears on inner wrappers */
+main::-webkit-scrollbar {
+  display: none !important;
+  width: 0;
+  height: 0;
+}
+main {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}

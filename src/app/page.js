@@ -6,7 +6,7 @@ import Footer from "@/components/common/Footer";
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen bg-gray-50 overflow-x-hidden w-full max-w-[100vw]">
       <HeroSection />
       <div className="relative z-20 -mt-10 mb-20"> {/* Negative margin to overlap Hero slightly for joined effect, or just place it. Let's place it clearly. */}
       </div>
