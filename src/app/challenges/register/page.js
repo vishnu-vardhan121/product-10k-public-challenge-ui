@@ -94,7 +94,7 @@ export default function RegisterPage() {
         phoneNumber: otpPhoneNumber,
         reset: resetOtp,
         clearError: clearOtpError,
-    } = usePhoneOTP({ blockBatchStudents: true });
+    } = usePhoneOTP({ blockBatchStudents: false });
 
     const [formData, setFormData] = useState({
         name: "",

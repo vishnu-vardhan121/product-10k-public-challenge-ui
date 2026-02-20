@@ -105,7 +105,7 @@ export default function ChallengeInterfacePage() {
     countdown,
     reset: resetOtp,
     clearError: clearOtpError,
-  } = usePhoneOTP({ blockBatchStudents: true });
+  } = usePhoneOTP({ blockBatchStudents: false });
 
   // Check verification on mount (restore from storage and sync registration status)
   useEffect(() => {
@@ -135,7 +135,9 @@ export default function ChallengeInterfacePage() {
     dispatch(setPhone(verifiedPhone));
     dispatch(clearError());
 
-    dispatch(checkRegistrationStatus({ challengeId: parseInt(challengeId), phone: verifiedPhone }))
+    // Use normalized phone so backend finds user (backend stores +91...; storage may have 10 digits)
+    const phoneForApi = formatPhoneNumber(verifiedPhone) || verifiedPhone;
+    dispatch(checkRegistrationStatus({ challengeId: parseInt(challengeId), phone: phoneForApi }))
       .unwrap()
       .then((result) => {
         // Stale response: user may have already registered via form; do not overwrite
@@ -165,7 +167,7 @@ export default function ChallengeInterfacePage() {
         if (userName) {
           const regData = {
             name: userName,
-            phone: verifiedPhone,
+            phone: phoneForApi,
             challenge_id: parseInt(challengeId),
             ...getUtmParams(),
           };
@@ -183,7 +185,7 @@ export default function ChallengeInterfacePage() {
               if (userAlreadyRegisteredRef.current) return;
               if (err?.already_registered) {
                 try {
-                  const statusResult = await dispatch(checkRegistrationStatus({ challengeId: parseInt(challengeId), phone: verifiedPhone })).unwrap();
+                  const statusResult = await dispatch(checkRegistrationStatus({ challengeId: parseInt(challengeId), phone: phoneForApi })).unwrap();
                   if (statusResult?.is_registered && statusResult?.registration_id) {
                     dispatch(clearError());
                     if (statusResult.user_id) dispatch(setUserId(statusResult.user_id));
@@ -599,8 +601,8 @@ export default function ChallengeInterfacePage() {
             className="h-16 mb-8"
           />
           <h1 className="text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">
-            {challenge?.title || 'Challenge'}
- Your Skills.<br />
+            {challenge?.title || 'Challenge'}<br />
+            Your Skills.<br />
             <span className="text-orange-500">Master the Code.</span>
           </h1>
           <p className="text-gray-300 text-lg leading-relaxed mb-8">
