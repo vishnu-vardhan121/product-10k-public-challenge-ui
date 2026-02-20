@@ -18,6 +18,7 @@ import { motion } from "framer-motion";
 import { useServerTime } from "@/hooks/useServerTime";
 import CountdownTimer from "../CountdownTimer";
 import { getDisplayParticipantCount, getParticipantLabel } from "@/shared/config";
+import { isChallengeSubmitted } from "@/utils/submittedChallenges";
 
 const FeaturedChallenge = () => {
     const dispatch = useDispatch();
@@ -192,7 +193,12 @@ const FeaturedChallenge = () => {
                             </div>
 
                             <div className="flex flex-col sm:flex-row gap-4">
-                                {isOngoing && (
+                                {isChallengeSubmitted(featured) ? (
+                                    <div className="inline-flex items-center justify-center px-8 py-4 bg-gray-600 text-gray-200 font-bold rounded-xl w-full sm:w-auto border border-gray-500 cursor-default">
+                                        <FaCheckCircle className="mr-2 text-green-400" />
+                                        Submitted
+                                    </div>
+                                ) : isOngoing ? (
                                     <Link
                                         href={appendUtmToPath(`/challenges/interface?id=${featured.id}`, utmQ)}
                                         className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-green-500/20 transition-all transform hover:-translate-y-1 w-full sm:w-auto"
@@ -200,9 +206,7 @@ const FeaturedChallenge = () => {
                                         Enter Active Challenge
                                         <FaArrowRight className="ml-2" />
                                     </Link>
-                                )}
-
-                                {isRegOpen && (
+                                ) : isRegOpen ? (
                                     <Link
                                         href={appendUtmToPath(featured.slug ? `/challenges/register?slug=${featured.slug}` : `/challenges/register?id=${featured.id}`, utmQ)}
                                         className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-orange-500/20 transition-all transform hover:-translate-y-1 w-full sm:w-auto"
@@ -210,16 +214,16 @@ const FeaturedChallenge = () => {
                                         Register Now
                                         <FaArrowRight className="ml-2" />
                                     </Link>
-                                )}
+                                ) : null}
 
-                                {isUpcoming && (
+                                {!isChallengeSubmitted(featured) && isUpcoming && (
                                     <button disabled className="inline-flex items-center justify-center px-8 py-4 bg-gray-700 text-gray-400 font-bold rounded-xl cursor-not-allowed w-full sm:w-auto border border-gray-600">
                                         Coming Soon
                                         <FaClock className="ml-2" />
                                     </button>
                                 )}
 
-                                {isStartingSoon && (
+                                {!isChallengeSubmitted(featured) && isStartingSoon && (
                                     <button disabled className="inline-flex items-center justify-center px-8 py-4 bg-orange-900/40 text-orange-400 font-bold rounded-xl border border-orange-500/30 w-full sm:w-auto">
                                         Starts Soon
                                         <FaClock className="ml-2" />

@@ -10,7 +10,9 @@ export default function Home() {
       <HeroSection />
       <div className="relative z-20 -mt-10 mb-20"> {/* Negative margin to overlap Hero slightly for joined effect, or just place it. Let's place it clearly. */}
       </div>
+      {/* Second section - commented out (do not remove code)
       <FeaturedChallenge />
+      */}
       <div id="features">
         <FeaturesSection />
       </div>

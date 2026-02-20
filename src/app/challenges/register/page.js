@@ -407,7 +407,7 @@ export default function RegisterPage() {
 
 
     return (
-        <div className="min-h-screen flex flex-col md:flex-row bg-white">
+        <div className="h-screen overflow-hidden flex flex-col md:flex-row bg-white">
             <BatchStudentShareModal
                 open={showBatchStudentModal}
                 onClose={() => setShowBatchStudentModal(false)}
@@ -520,10 +520,10 @@ export default function RegisterPage() {
             </div>
 
             {/* Right Side - Scrollable Form Area */}
-            <div className="w-full md:w-7/12 bg-white flex flex-col min-h-screen">
+            <div className="w-full md:w-7/12 bg-white flex flex-col min-h-0 overflow-hidden">
                 {/* Error View (Replaces Form) */}
                 {!currentChallenge && !challengeLoading ? (
-                    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-fadeIn">
+                    <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center p-8 text-center animate-fadeIn">
                         <div className="relative w-64 h-64 md:w-80 md:h-80 mb-8 transform transition-transform hover:scale-105 duration-300">
                             <Image
                                 src="/helpers/timeout.jpg"
@@ -547,7 +547,7 @@ export default function RegisterPage() {
                         </Link>
                     </div>
                 ) : (
-                    <div className="flex-1 w-full max-w-2xl mx-auto px-4 sm:px-5 py-6 sm:py-8 md:p-16 flex flex-col justify-start md:justify-center pb-[env(safe-area-inset-bottom)]">
+                    <div className="flex-1 min-h-0 overflow-y-auto w-full max-w-2xl mx-auto px-4 sm:px-5 py-6 sm:py-8 md:p-16 flex flex-col justify-start md:justify-center pb-[env(safe-area-inset-bottom)]">
 
                         {/* Mobile Header (Integrated) */}
                         {/* Mobile Header (Integrated) */}

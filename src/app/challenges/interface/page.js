@@ -32,6 +32,21 @@ import {
 import { getUtmQueryString, appendUtmToPath } from "@/utils/utmParams";
 import "@/styles/resizable-panels.css";
 
+/** Format remaining ms as "Xd Xh Xm Xs" or "Xh Xm Xs" / "Xm Xs" / "Xs". */
+function formatCountdown(ms) {
+  if (ms <= 0) return "0s";
+  const s = Math.floor((ms / 1000) % 60);
+  const m = Math.floor((ms / (1000 * 60)) % 60);
+  const h = Math.floor((ms / (1000 * 60 * 60)) % 24);
+  const d = Math.floor(ms / (1000 * 60 * 60 * 24));
+  const parts = [];
+  if (d > 0) parts.push(`${d}d`);
+  if (h > 0) parts.push(`${h}h`);
+  parts.push(`${m}m`);
+  parts.push(`${s}s`);
+  return parts.join(" ");
+}
+
 /** Basic email format validation (required, has @ and domain). */
 function isValidEmail(value) {
   if (!value || typeof value !== "string") return false;
@@ -89,6 +104,7 @@ export default function ChallengeInterfacePage() {
 
   const [showBatchStudentModal, setShowBatchStudentModal] = useState(false);
   const [fetchSettled, setFetchSettled] = useState(false);
+  const [now, setNow] = useState(() => Date.now()); // for "test will start in" countdown
   const redirectFallbackRef = useRef(null);
   // Prevent restore effect from overwriting state after user has already registered (avoids OTP screen / session expired)
   const userAlreadyRegisteredRef = useRef(false);
@@ -213,8 +229,13 @@ export default function ChallengeInterfacePage() {
           setOtpStep("register");
         }
       })
-      .catch((err) => console.error('Failed to fetch registration details:', err));
-  }, [challengeId, dispatch, reduxPhone]);
+      .catch((err) => {
+        if (userAlreadyRegisteredRef.current) return;
+        // Registration check failed (e.g. challenge not found, API error) -> send to challenges list
+        const challengesPath = appendUtmToPath("/challenges", getUtmQueryString(searchParams));
+        router.replace(challengesPath);
+      });
+  }, [challengeId, dispatch, reduxPhone, router, searchParams]);
 
   useEffect(() => {
     if (challengeId) {
@@ -536,8 +557,18 @@ export default function ChallengeInterfacePage() {
   // Only consider ended when loaded challenge matches this page (avoid stale state after refresh/navigation)
   const isCurrentChallenge = challenge && String(challenge.id) === String(challengeId);
   const challengeEnded = isCurrentChallenge && challenge?.challenge_end_at && new Date(challenge.challenge_end_at).getTime() <= Date.now();
+  const startAtMs = isCurrentChallenge && challenge?.challenge_start_at ? new Date(challenge.challenge_start_at).getTime() : null;
+  const challengeNotStarted = startAtMs != null && startAtMs > now;
   const shouldRedirect = !challengeId || (fetchSettled && !challengeLoading && (!challenge || challengeEnded));
   const waitingForFetch = challengeId && !fetchSettled;
+
+  // Tick every second when showing "test will start in" so countdown updates
+  useEffect(() => {
+    if (!challengeNotStarted || !(otpVerified && isRegistered)) return;
+    setNow(Date.now());
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [challengeNotStarted, otpVerified, isRegistered]);
 
   // Loading Screen (while fetching, or while redirecting so we don't flash the form)
   if (challengeLoading || waitingForFetch || shouldRedirect) {
@@ -565,8 +596,8 @@ export default function ChallengeInterfacePage() {
     setPendingAction(null);
   };
 
-  // Challenge Verified -> Main Interface
-  if (otpVerified && isRegistered) {
+  // Challenge Verified -> Main Interface (only when challenge has started)
+  if (otpVerified && isRegistered && !challengeNotStarted) {
     return (
       <div className="fixed inset-0 overflow-hidden">
         <ChallengeInterface challengeId={challengeId} onSessionInvalid={handleSessionInvalid} utmQuery={getUtmQueryString(searchParams)} />
@@ -645,6 +676,20 @@ export default function ChallengeInterfacePage() {
             />
           </div>
 
+          {/* Timer in form section when challenge not started yet (verified + registered) */}
+          {otpVerified && isRegistered && challengeNotStarted && startAtMs != null ? (
+            <div className="text-center py-6 sm:py-8">
+              <div className="animate-pulse rounded-full h-14 w-14 sm:h-16 sm:w-16 bg-orange-100 mx-auto mb-4 sm:mb-6 flex items-center justify-center">
+                <span className="text-xl sm:text-2xl">⏱</span>
+              </div>
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">Test will start in</h2>
+              <p className="text-2xl sm:text-3xl font-mono font-bold text-orange-600 mb-3 sm:mb-4 tabular-nums">
+                {formatCountdown(Math.max(0, startAtMs - now))}
+              </p>
+              <p className="text-gray-500 text-sm">Stay on this page. The challenge will begin automatically.</p>
+            </div>
+          ) : (
+          <>
           <div className="mb-8 sm:mb-10">
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Welcome Back</h2>
             <p className="text-sm sm:text-base text-gray-600">
@@ -869,6 +914,8 @@ export default function ChallengeInterfacePage() {
               Protected by 10000Coders Secure Login System.
             </p>
           </div>
+          </>
+          )}
         </div>
       </div>
     </div>
