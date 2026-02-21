@@ -56,7 +56,7 @@ import { appendUtmToPath } from "@/utils/utmParams";
 
 export default function ChallengeInterface({ challengeId, onSessionInvalid, utmQuery }) {
   const dispatch = useDispatch();
-  const [activeTab, setActiveTab] = useState("mcq"); // 'mcq' | 'coding'
+  const [activeTab, setActiveTab] = useState("coding"); // 'coding' (problems first) | 'mcq'
   const [selectedProblemId, setSelectedProblemId] = useState(null);
   const router = useRouter();
   const lastMCQFetchKeyRef = useRef(null);
@@ -214,16 +214,17 @@ export default function ChallengeInterface({ challengeId, onSessionInvalid, utmQ
   const mcqCount = challenge?.mcq_questions_count || challenge?.mcq_questions?.length || mcqQuestions.length || 0;
   const problemsCount = challenge?.problems_count || challenge?.problems?.length || codingProblems.length || 0;
 
+  // Problems first, then MCQs
   const tabs = [
-    ...(mcqCount > 0 ? [{ id: "mcq", label: "MCQ Questions", count: mcqCount }] : []),
     ...(problemsCount > 0 ? [{ id: "coding", label: "Coding Problems", count: problemsCount }] : []),
+    ...(mcqCount > 0 ? [{ id: "mcq", label: "MCQ Questions", count: mcqCount }] : []),
   ];
 
-  // Auto-select tab based on availability
+  // Auto-select tab when only one type exists (problems first, then mcq)
   useEffect(() => {
-    if (mcqCount === 0 && problemsCount > 0 && activeTab !== "coding") {
+    if (problemsCount > 0 && mcqCount === 0 && activeTab !== "coding") {
       setActiveTab("coding");
-    } else if (problemsCount === 0 && mcqCount > 0 && activeTab !== "mcq") {
+    } else if (mcqCount > 0 && problemsCount === 0 && activeTab !== "mcq") {
       setActiveTab("mcq");
     }
   }, [mcqCount, problemsCount, activeTab]);
