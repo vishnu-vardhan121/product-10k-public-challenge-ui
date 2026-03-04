@@ -57,7 +57,7 @@ import { addSubmittedChallenge, isChallengeSubmitted } from "@/utils/submittedCh
 
 export default function ChallengeInterface({ challengeId, onSessionInvalid, utmQuery }) {
   const dispatch = useDispatch();
-  const [activeTab, setActiveTab] = useState("mcq"); // 'mcq' | 'coding'
+  const [activeTab, setActiveTab] = useState("coding"); // 'coding' (problems first) | 'mcq'
   const [selectedProblemId, setSelectedProblemId] = useState(null);
   const router = useRouter();
   const lastMCQFetchKeyRef = useRef(null);
@@ -255,9 +255,10 @@ export default function ChallengeInterface({ challengeId, onSessionInvalid, utmQ
     );
   }
 
+  // Problems first, then MCQs (mcqCount/problemsCount already set above before early return)
   const tabs = [
-    ...(mcqCount > 0 ? [{ id: "mcq", label: "MCQ Questions", count: mcqCount }] : []),
     ...(problemsCount > 0 ? [{ id: "coding", label: "Coding Problems", count: problemsCount }] : []),
+    ...(mcqCount > 0 ? [{ id: "mcq", label: "MCQ Questions", count: mcqCount }] : []),
   ];
 
   const renderTabContent = () => {
