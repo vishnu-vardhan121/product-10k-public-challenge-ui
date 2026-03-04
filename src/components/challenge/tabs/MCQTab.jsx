@@ -6,10 +6,11 @@ import { FaSpinner, FaExclamationTriangle } from "react-icons/fa";
 import MarkdownRenderer from "@/components/shared/MarkdownRenderer";
 import { debounce } from "@/utils/debounce";
 
-export default function MCQTab({ challengeId, questions, loading, userId, registrationId, onGoToProblems, hasProblems }) {
+export default function MCQTab({ challengeId, questions, loading, userId, registrationId, onGoToProblems, hasProblems, onSubmitChallenge }) {
   const dispatch = useDispatch();
   const [answers, setAnswers] = useState({});
   const [mobileQuestionPickerOpen, setMobileQuestionPickerOpen] = useState(false);
+  const [showSubmitConfirmModal, setShowSubmitConfirmModal] = useState(false);
   const savingInProgressRef = useRef({}); // Track which questions are currently being saved to prevent duplicates
 
   // Hydrate answers from localStorage (quick fallback) and backend (authoritative).
@@ -379,7 +380,18 @@ export default function MCQTab({ challengeId, questions, loading, userId, regist
               Question {currentQuestionIndex + 1} of {totalCount}
             </span>
 
-            {currentQuestionIndex === questions.length - 1 && hasProblems && onGoToProblems ? (
+            {onSubmitChallenge && !hasProblems && currentQuestionIndex === questions.length - 1 ? (
+              <button
+                type="button"
+                onClick={() => setShowSubmitConfirmModal(true)}
+                className="min-h-[44px] px-4 sm:px-6 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+              >
+                <span className="hidden sm:inline">Submit</span>
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+            ) : currentQuestionIndex === questions.length - 1 && hasProblems && onGoToProblems ? (
               <button
                 onClick={onGoToProblems}
                 className="min-h-[44px] px-4 sm:px-6 py-2.5 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
@@ -453,6 +465,45 @@ export default function MCQTab({ challengeId, questions, loading, userId, regist
                   );
                 })}
               </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Submit confirmation modal */}
+      {showSubmitConfirmModal && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/50 z-[60]"
+            onClick={() => setShowSubmitConfirmModal(false)}
+            aria-hidden
+          />
+          <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[70] w-full max-w-md mx-4 bg-white rounded-2xl shadow-xl p-6 sm:p-8">
+            <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">Submit challenge?</h3>
+            <p className="text-sm sm:text-base text-gray-600 mb-6">
+              Are you sure you want to submit? You won&apos;t be able to change your answers after submitting.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => setShowSubmitConfirmModal(false)}
+                className="min-h-[44px] px-4 sm:px-6 py-2.5 rounded-lg font-medium border-2 border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSubmitConfirmModal(false);
+                  onSubmitChallenge();
+                }}
+                className="min-h-[44px] px-4 sm:px-6 py-2.5 rounded-lg font-medium bg-green-600 text-white hover:bg-green-700 transition-colors flex items-center gap-2"
+              >
+                Submit
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
             </div>
           </div>
         </>

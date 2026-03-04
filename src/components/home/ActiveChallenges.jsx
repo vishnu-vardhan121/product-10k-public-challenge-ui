@@ -14,13 +14,13 @@ import {
   FaCheckCircle,
 } from "react-icons/fa";
 import { motion } from "framer-motion";
-import { motion } from "framer-motion";
 import { useServerTime } from "@/hooks/useServerTime";
 import RegistrationModal from "@/components/registration/RegistrationModal";
 import { registerUser } from "@/redux/features/publicChallenge/publicChallengeSlice";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getDisplayParticipantCount, getParticipantLabel } from "@/shared/config";
 import { getUtmQueryString, appendUtmToPath } from "@/utils/utmParams";
+import { isChallengeSubmitted } from "@/utils/submittedChallenges";
 
 const ActiveChallenges = () => {
   const dispatch = useDispatch();
@@ -302,7 +302,12 @@ const ActiveChallenges = () => {
 
                       {/* Action Buttons */}
                       <div className="flex gap-2">
-                        {status.text === "Ongoing" && (
+                        {isChallengeSubmitted(challenge) ? (
+                          <div className="flex-1 px-4 py-3 bg-gray-200 text-gray-600 text-center rounded-lg font-semibold text-sm flex items-center justify-center gap-2 cursor-default">
+                            <FaCheckCircle className="text-green-600 shrink-0" />
+                            Submitted
+                          </div>
+                        ) : status.text === "Ongoing" ? (
                           challenge.is_registered ? (
                             <Link
                               href={appendUtmToPath(`/challenges/interface?id=${challenge.id}`, utmQ)}
@@ -320,18 +325,17 @@ const ActiveChallenges = () => {
                               <FaArrowRight className="text-xs group-hover/btn:translate-x-1 transition-transform" />
                             </button>
                           )
-                        )}
-                        {status.text === "Registration Open" &&
+                        ) : status.text === "Registration Open" &&
                           (challenge.challenge_type === "PUBLIC" ||
                             challenge.challenge_type === "COLLEGE_STUDENTS") &&
-                          !challenge.is_registered && (
+                          !challenge.is_registered ? (
                             <button
                               onClick={() => openRegistration(challenge)}
                               className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-600 to-red-600 text-white text-center rounded-lg hover:from-orange-700 hover:to-red-700 transition-all font-semibold text-sm shadow-md hover:shadow-lg"
                             >
                               Register
                             </button>
-                          )}
+                          ) : null}
                       </div>
                     </div>
                   </div>

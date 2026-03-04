@@ -53,6 +53,7 @@ import CodingProblemsTab from "./tabs/CodingProblemsTab";
 import { FaSpinner, FaExclamationTriangle } from "react-icons/fa";
 import { clearError } from "@/redux/features/publicChallenge/publicChallengeSlice";
 import { appendUtmToPath } from "@/utils/utmParams";
+import { addSubmittedChallenge, isChallengeSubmitted } from "@/utils/submittedChallenges";
 
 export default function ChallengeInterface({ challengeId, onSessionInvalid, utmQuery }) {
   const dispatch = useDispatch();
@@ -71,6 +72,7 @@ export default function ChallengeInterface({ challengeId, onSessionInvalid, utmQ
     accessCode,
     userId,
     registrationId,
+    userName,
     loading,
     error,
   } = useSelector((state) => {
@@ -88,6 +90,7 @@ export default function ChallengeInterface({ challengeId, onSessionInvalid, utmQ
       accessCode: state.publicChallenge.accessCode,
       userId: state.publicChallenge.userId,
       registrationId: state.publicChallenge.registrationId,
+      userName: state.publicChallenge.userName,
       loading: state.publicChallenge.loading,
       error: state.publicChallenge.error,
     };
@@ -96,6 +99,16 @@ export default function ChallengeInterface({ challengeId, onSessionInvalid, utmQ
   // Timer logic
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
   const [isChallengeEnded, setIsChallengeEnded] = useState(false);
+  const challengeEndedRef = useRef(false); // once true (submit or timer), never show MCQs again
+
+  // If this challenge was already submitted (localStorage), show thank-you only (works after refresh or new tab)
+  useEffect(() => {
+    if (!challengeId) return;
+    if (isChallengeSubmitted({ id: challengeId, slug: challenge?.slug })) {
+      challengeEndedRef.current = true;
+      setIsChallengeEnded(true);
+    }
+  }, [challengeId, challenge?.slug]);
 
   useEffect(() => {
     // Initialize time sync
@@ -108,13 +121,16 @@ export default function ChallengeInterface({ challengeId, onSessionInvalid, utmQ
 
   useEffect(() => {
     if (!challenge?.challenge_end_at) return;
+    if (challengeEndedRef.current) return; // already ended (e.g. user submitted), don't update timer
 
     const updateTimer = () => {
+      if (challengeEndedRef.current) return;
       const now = getNowMs();
       const endTime = new Date(challenge.challenge_end_at).getTime();
       const diff = Math.max(0, endTime - now);
 
       if (diff <= 0) {
+        challengeEndedRef.current = true;
         setTimeLeft({ hours: 0, minutes: 0, seconds: 0 });
         setIsChallengeEnded(true);
       } else {
@@ -126,13 +142,17 @@ export default function ChallengeInterface({ challengeId, onSessionInvalid, utmQ
       }
     };
 
-    // Update immediately
     updateTimer();
-
-    // Update every second
     const timer = setInterval(updateTimer, 1000);
     return () => clearInterval(timer);
   }, [challenge?.challenge_end_at]);
+
+  // Mark challenge as submitted when timer ends (so "Submitted" shows on challenges/landing when they return)
+  useEffect(() => {
+    if (isChallengeEnded && challengeId) {
+      addSubmittedChallenge(challengeId, challenge?.slug);
+    }
+  }, [isChallengeEnded, challengeId, challenge?.slug]);
 
   // Use problems and MCQ questions from challenge details (already included in API response)
   // Only fetch separately as fallback if challenge details didn't include them
@@ -199,6 +219,31 @@ export default function ChallengeInterface({ challengeId, onSessionInvalid, utmQ
     }
   }, [codingProblems, selectedProblemId]);
 
+  // Get counts from challenge or current state (before any early return so hook below always runs)
+  const mcqCount = challenge?.mcq_questions_count || challenge?.mcq_questions?.length || mcqQuestions.length || 0;
+  const problemsCount = challenge?.problems_count || challenge?.problems?.length || codingProblems.length || 0;
+
+  // Auto-select tab based on availability (must run before any early return to satisfy rules of hooks)
+  useEffect(() => {
+    if (mcqCount === 0 && problemsCount > 0 && activeTab !== "coding") {
+      setActiveTab("coding");
+    } else if (problemsCount === 0 && mcqCount > 0 && activeTab !== "mcq") {
+      setActiveTab("mcq");
+    }
+  }, [mcqCount, problemsCount, activeTab]);
+
+  // Problems-only challenge: when student has solved all problems, show thank-you (same as MCQs submit)
+  useEffect(() => {
+    if (challengeEndedRef.current) return;
+    if (mcqCount > 0 || problemsCount === 0) return;
+    if (!codingProblems.length || codingProblems.length !== problemsCount) return;
+    const allSolved = codingProblems.every((p) => Boolean(p.is_solved));
+    if (!allSolved) return;
+    challengeEndedRef.current = true;
+    addSubmittedChallenge(challengeId, challenge?.slug);
+    setIsChallengeEnded(true);
+  }, [mcqCount, problemsCount, codingProblems, challengeId, challenge?.slug]);
+
   if (!challenge) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -210,24 +255,11 @@ export default function ChallengeInterface({ challengeId, onSessionInvalid, utmQ
     );
   }
 
-  // Get counts from challenge or current state
-  const mcqCount = challenge?.mcq_questions_count || challenge?.mcq_questions?.length || mcqQuestions.length || 0;
-  const problemsCount = challenge?.problems_count || challenge?.problems?.length || codingProblems.length || 0;
-
-  // Problems first, then MCQs
+  // Problems first, then MCQs (mcqCount/problemsCount already set above before early return)
   const tabs = [
     ...(problemsCount > 0 ? [{ id: "coding", label: "Coding Problems", count: problemsCount }] : []),
     ...(mcqCount > 0 ? [{ id: "mcq", label: "MCQ Questions", count: mcqCount }] : []),
   ];
-
-  // Auto-select tab when only one type exists (problems first, then mcq)
-  useEffect(() => {
-    if (problemsCount > 0 && mcqCount === 0 && activeTab !== "coding") {
-      setActiveTab("coding");
-    } else if (mcqCount > 0 && problemsCount === 0 && activeTab !== "mcq") {
-      setActiveTab("mcq");
-    }
-  }, [mcqCount, problemsCount, activeTab]);
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -241,6 +273,11 @@ export default function ChallengeInterface({ challengeId, onSessionInvalid, utmQ
             registrationId={registrationId}
             hasProblems={problemsCount > 0}
             onGoToProblems={() => setActiveTab("coding")}
+            onSubmitChallenge={problemsCount === 0 ? () => {
+              challengeEndedRef.current = true;
+              addSubmittedChallenge(challengeId, challenge?.slug);
+              setIsChallengeEnded(true);
+            } : undefined}
           />
         );
       case "coding":
@@ -272,72 +309,47 @@ export default function ChallengeInterface({ challengeId, onSessionInvalid, utmQ
     ? { height: visualViewportHeight, maxHeight: visualViewportHeight }
     : undefined;
 
+  // When challenge ended (submitted or timer), show only thank-you screen — no navbar, no MCQ/coding content
+  if (isChallengeEnded) {
+    return (
+      <div
+        className="h-dvh sm:h-screen bg-gray-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
+        style={rootStyle}
+      >
+        <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl max-w-3xl w-full p-6 sm:p-10 md:p-16 text-center">
+          <div className="mb-6 sm:mb-10">
+            <div className="w-20 h-20 sm:w-28 sm:h-28 bg-orange-500 rounded-full mx-auto flex items-center justify-center mb-6 sm:mb-8 animate-pulse">
+              <svg className="w-10 h-10 sm:w-16 sm:h-16 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+          </div>
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-gray-900 mb-4 sm:mb-6">
+            Thank You!
+          </h1>
+          <p className="text-lg sm:text-xl md:text-2xl text-gray-600 mb-8 sm:mb-12 leading-relaxed px-1">
+            Your challenge has been completed successfully.<br />
+            Our team will review your submissions and contact you soon.
+          </p>
+          <div className="w-24 h-1 bg-orange-500 mx-auto mb-8 sm:mb-12"></div>
+          <div className="bg-orange-50 rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 border-2 border-orange-200">
+            <div className="flex items-center justify-center gap-3 sm:gap-4 flex-wrap">
+              <svg className="w-6 h-6 sm:w-7 sm:h-7 text-orange-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span className="text-base sm:text-lg md:text-xl font-semibold text-orange-900">Submitted. All your answers have been saved.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className="h-dvh sm:h-screen bg-gray-50 flex flex-col overflow-hidden relative"
       style={rootStyle}
     >
-      {/* Challenge Ended Overlay */}
-      {isChallengeEnded && (
-        <div
-          className="absolute inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-gray-50 overflow-y-auto"
-        >
-          <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl max-w-3xl w-full p-6 sm:p-10 md:p-16 text-center">
-            {/* Success Icon */}
-            <div className="mb-6 sm:mb-10">
-              <div className="w-20 h-20 sm:w-28 sm:h-28 bg-orange-500 rounded-full mx-auto flex items-center justify-center mb-6 sm:mb-8 animate-pulse">
-                <svg className="w-10 h-10 sm:w-16 sm:h-16 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-            </div>
-
-            {/* Main Heading */}
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-gray-900 mb-4 sm:mb-6">
-              Thank You!
-            </h1>
-
-            <p className="text-lg sm:text-xl md:text-2xl text-gray-600 mb-8 sm:mb-12 leading-relaxed px-1">
-              Your challenge has been completed successfully.<br />
-              Our team will review your submissions and contact you soon.
-            </p>
-
-            {/* Divider */}
-            <div className="w-24 h-1 bg-orange-500 mx-auto mb-8 sm:mb-12"></div>
-
-            {/* Info Box */}
-            <div className="bg-orange-50 rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 mb-8 sm:mb-12 border-2 border-orange-200">
-              <div className="flex items-center justify-center gap-3 sm:gap-4 flex-wrap">
-                <svg className="w-6 h-6 sm:w-7 sm:h-7 text-orange-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                <span className="text-base sm:text-lg md:text-xl font-semibold text-orange-900">All your answers have been saved</span>
-              </div>
-            </div>
-
-            {/* Logo */}
-            <div className="mb-8 sm:mb-10">
-              <img
-                src="/logos/10k_logo_black.webp"
-                alt="10000Coders"
-                className="h-10 sm:h-14 mx-auto object-contain opacity-80"
-              />
-            </div>
-
-            {/* Home Button (preserve UTMs when present) */}
-            <a
-              href={appendUtmToPath("/", utmQuery || "")}
-              className="inline-flex items-center gap-2 sm:gap-3 px-6 sm:px-8 md:px-10 py-3 sm:py-4 md:py-5 bg-orange-500 hover:bg-orange-600 text-white font-bold text-base sm:text-lg md:text-xl rounded-xl sm:rounded-2xl transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-1 min-h-[44px]"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
-              Back to Home
-            </a>
-          </div>
-        </div>
-      )}
-
       {/* Navbar: row 1 = logo + timer + user; row 2 = MCQ / Problems tabs */}
       <div className="flex-shrink-0 bg-white border-b border-gray-200 shadow-sm">
         {/* Row 1: Logo (left) | Timer + User (right) */}
@@ -345,14 +357,14 @@ export default function ChallengeInterface({ challengeId, onSessionInvalid, utmQ
           <img src="/logos/10k_logo_black.webp" alt="10000Coders" className="h-6 sm:h-8 md:h-10 object-contain shrink-0" />
           <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <CompactTimer timeLeft={timeLeft} />
-            {useSelector(state => state.publicChallenge.userName) && (
+            {userName && (
               <div className="flex items-center gap-1.5 sm:gap-2 pl-1.5 sm:pl-3 border-l border-gray-200">
                 <div className="hidden sm:flex flex-col items-end">
-                  <span className="text-xs font-bold text-gray-900 truncate max-w-[80px]">{useSelector(state => state.publicChallenge.userName)}</span>
+                  <span className="text-xs font-bold text-gray-900 truncate max-w-[80px]">{userName}</span>
                 </div>
                 <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-white shadow-sm border-2 border-white shrink-0">
                   <span className="text-[10px] sm:text-xs font-bold uppercase">
-                    {useSelector(state => state.publicChallenge.userName).charAt(0)}
+                    {userName.charAt(0)}
                   </span>
                 </div>
               </div>
