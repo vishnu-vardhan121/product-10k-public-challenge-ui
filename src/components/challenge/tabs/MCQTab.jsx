@@ -6,7 +6,7 @@ import { FaSpinner, FaExclamationTriangle } from "react-icons/fa";
 import MarkdownRenderer from "@/components/shared/MarkdownRenderer";
 import { debounce } from "@/utils/debounce";
 
-export default function MCQTab({ challengeId, questions, loading, userId, registrationId, onGoToProblems, hasProblems, onSubmitChallenge }) {
+export default function MCQTab({ challengeId, questions, loading, userId, registrationId, onGoToProblems, hasProblems, allProblemsSolved = false, onSubmitChallenge }) {
   const dispatch = useDispatch();
   const [answers, setAnswers] = useState({});
   const [mobileQuestionPickerOpen, setMobileQuestionPickerOpen] = useState(false);
@@ -270,6 +270,15 @@ export default function MCQTab({ challengeId, questions, loading, userId, regist
   const questionAnswer = answers[currentQuestion.id] || {};
   const isAnswered = questionAnswer.selected_option_id || questionAnswer.text_answer;
 
+  const allMcqsAnswered =
+    questions.length > 0 &&
+    questions.every((q) => {
+      const a = answers[q.id];
+      return a?.selected_option_id || (typeof a?.text_answer === "string" && a.text_answer.trim() !== "");
+    });
+  const canSubmitChallenge =
+    onSubmitChallenge && allMcqsAnswered && (!hasProblems || allProblemsSolved);
+
   return (
     <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
       {/* Main Content Area - Single Question */}
@@ -380,7 +389,7 @@ export default function MCQTab({ challengeId, questions, loading, userId, regist
               Question {currentQuestionIndex + 1} of {totalCount}
             </span>
 
-            {onSubmitChallenge && !hasProblems && currentQuestionIndex === questions.length - 1 ? (
+            {canSubmitChallenge ? (
               <button
                 type="button"
                 onClick={() => setShowSubmitConfirmModal(true)}
@@ -391,7 +400,7 @@ export default function MCQTab({ challengeId, questions, loading, userId, regist
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </button>
-            ) : currentQuestionIndex === questions.length - 1 && hasProblems && onGoToProblems ? (
+            ) : currentQuestionIndex === questions.length - 1 && hasProblems && !allProblemsSolved && onGoToProblems ? (
               <button
                 onClick={onGoToProblems}
                 className="min-h-[44px] px-4 sm:px-6 py-2.5 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"

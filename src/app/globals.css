@@ -31,3 +31,14 @@ main {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
+
+/* Hide scrollbar on challenge interface form panel */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none !important;
+  width: 0;
+  height: 0;
+}

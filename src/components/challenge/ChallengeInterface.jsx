@@ -261,6 +261,12 @@ export default function ChallengeInterface({ challengeId, onSessionInvalid, utmQ
     ...(mcqCount > 0 ? [{ id: "mcq", label: "MCQ Questions", count: mcqCount }] : []),
   ];
 
+  const allProblemsSolved =
+    problemsCount > 0 &&
+    codingProblems.length === problemsCount &&
+    codingProblems.every((p) => Boolean(p.is_solved));
+  const showGoToMcqButton = activeTab === "coding" && allProblemsSolved && mcqCount > 0;
+
   const renderTabContent = () => {
     switch (activeTab) {
       case "mcq":
@@ -272,28 +278,50 @@ export default function ChallengeInterface({ challengeId, onSessionInvalid, utmQ
             userId={userId}
             registrationId={registrationId}
             hasProblems={problemsCount > 0}
+            allProblemsSolved={allProblemsSolved}
             onGoToProblems={() => setActiveTab("coding")}
-            onSubmitChallenge={problemsCount === 0 ? () => {
+            onSubmitChallenge={() => {
               challengeEndedRef.current = true;
               addSubmittedChallenge(challengeId, challenge?.slug);
               setIsChallengeEnded(true);
-            } : undefined}
+            }}
           />
         );
       case "coding":
         return (
-          <CodingProblemsTab
-            challengeId={parseInt(challengeId)}
-            problems={codingProblems}
-            selectedProblemId={selectedProblemId}
-            onSelectProblem={setSelectedProblemId}
-            loading={loading.codingProblems}
-            userId={userId}
-            registrationId={registrationId}
-            phone={phone}
-            accessCode={accessCode}
-            timeLeft={timeLeft}
-          />
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+            {showGoToMcqButton && (
+              <div className="flex-shrink-0 bg-orange-50 border-b border-orange-200 px-3 py-2.5 sm:px-4 sm:py-3 flex items-center justify-center gap-3">
+                <span className="text-sm sm:text-base font-semibold text-orange-900">
+                  All problems submitted successfully.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("mcq")}
+                  className="inline-flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
+                >
+                  Go to MCQs
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </button>
+              </div>
+            )}
+            <div className="flex-1 min-h-0 overflow-hidden">
+            <CodingProblemsTab
+              challengeId={parseInt(challengeId)}
+              problems={codingProblems}
+              selectedProblemId={selectedProblemId}
+              onSelectProblem={setSelectedProblemId}
+              loading={loading.codingProblems}
+              userId={userId}
+              registrationId={registrationId}
+              phone={phone}
+              accessCode={accessCode}
+              timeLeft={timeLeft}
+            />
+            </div>
+          </div>
         );
       default:
         return null;
