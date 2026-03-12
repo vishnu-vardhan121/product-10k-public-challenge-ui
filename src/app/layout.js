@@ -1,7 +1,9 @@
 import { Geist, Geist_Mono } from "next/font/google";
+import "react-toastify/dist/ReactToastify.css";
 import "./globals.css";
 import Navbar from "@/components/common/Navbar";
 import { Providers } from "@/redux/provider";
+import { ToastContainer } from "react-toastify";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,7 +31,8 @@ export default function RootLayout({ children }) {
       >
         <Providers>
           <Navbar />
-        {children}
+          {children}
+          <ToastContainer position="top-center" autoClose={3000} theme="light" />
         </Providers>
       </body>
     </html>

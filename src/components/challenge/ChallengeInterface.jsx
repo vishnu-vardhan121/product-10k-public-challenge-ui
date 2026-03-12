@@ -54,6 +54,7 @@ import { FaSpinner, FaExclamationTriangle } from "react-icons/fa";
 import { clearError } from "@/redux/features/publicChallenge/publicChallengeSlice";
 import { appendUtmToPath } from "@/utils/utmParams";
 import { addSubmittedChallenge, isChallengeSubmitted } from "@/utils/submittedChallenges";
+import { toast } from "react-toastify";
 
 export default function ChallengeInterface({ challengeId, onSessionInvalid, utmQuery }) {
   const dispatch = useDispatch();
@@ -62,6 +63,7 @@ export default function ChallengeInterface({ challengeId, onSessionInvalid, utmQ
   const router = useRouter();
   const lastMCQFetchKeyRef = useRef(null);
   const lastProblemsFetchKeyRef = useRef(null);
+  const tabShiftCountRef = useRef(0);
   const visualViewportHeight = useVisualViewportHeight();
 
   const {
@@ -153,6 +155,37 @@ export default function ChallengeInterface({ challengeId, onSessionInvalid, utmQ
       addSubmittedChallenge(challengeId, challenge?.slug);
     }
   }, [isChallengeEnded, challengeId, challenge?.slug]);
+
+  // Tab-shift notification: notify only (no count, no blocking)
+  useEffect(() => {
+    if (!challengeId || challengeEndedRef.current) return;
+
+    tabShiftCountRef.current = 0;
+    let shiftDetected = false;
+    const handleShift = () => {
+      if (shiftDetected) return;
+      shiftDetected = true;
+      tabShiftCountRef.current += 1;
+      const n = tabShiftCountRef.current;
+      toast.warning(`You switched tabs ${n} time${n === 1 ? "" : "s"}. Please stay on this page.`, {
+        position: "top-center",
+        autoClose: 3000,
+      });
+      setTimeout(() => {
+        shiftDetected = false;
+      }, 1000);
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") handleShift();
+    };
+    const handleBlur = () => handleShift();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("blur", handleBlur);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, [challengeId]);
 
   // Use problems and MCQ questions from challenge details (already included in API response)
   // Only fetch separately as fallback if challenge details didn't include them
