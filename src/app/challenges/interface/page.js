@@ -639,7 +639,7 @@ export default function ChallengeInterfacePage() {
                 </h2>
                 <p className="text-sm sm:text-base text-gray-600">
                   {otpStep === "otp"
-                    ? `Enter the 6-digit code we sent to +91 ${formatPhoneInputDisplay(phone).trim()}`
+                    ? `Enter the 6-digit code we sent to  ${formatPhoneInputDisplay(phone).trim()}`
                     : "Share your details below. We'll send a one-time code to your phone to verify and get you in."}
                 </p>
               </div>
