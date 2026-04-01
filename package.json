@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "build:dev": "dotenv -e .env.development next build",
     "build:prod": "dotenv -e .env.production next build",
     "start": "next start",
@@ -43,5 +43,8 @@
     "tailwindcss": "^4",
     "typescript": "^5.9.3"
   },
-  "packageManager": "npm@10.9.2"
+  "optionalDependencies": {
+    "lightningcss-linux-x64-gnu": "1.30.2"
+  },
+  "packageManager": "yarn@4.5.0+sha512.837566d24eec14ec0f5f1411adb544e892b3454255e61fdef8fd05f3429480102806bac7446bc9daff3896b01ae4b62d00096c7e989f1596f2af10b927532f39"
 }
