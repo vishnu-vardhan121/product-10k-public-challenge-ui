@@ -16,7 +16,6 @@ import { usePhoneOTP } from "@/hooks/usePhoneOTP";
 import OTPInput from "@/components/registration/OTPInput";
 import {
   FaSpinner,
-  FaArrowLeft,
   FaPhone,
   FaLock,
 } from "react-icons/fa";
@@ -325,11 +324,11 @@ export default function ChallengeInterfacePage() {
     setLocalError(null);
     dispatch(clearError());
     if (!phone.trim()) {
-      setLocalError("Please enter your phone number to send OTP");
+      setLocalError("Phone number is required.");
       return;
     }
     if (!validateIndianPhoneNumber(phone)) {
-      setLocalError("Please enter a valid 10-digit mobile number");
+      setLocalError("Enter a valid 10-digit phone number.");
       return;
     }
     const result = await sendOTP(formatPhoneNumber(phone));
@@ -343,7 +342,7 @@ export default function ChallengeInterfacePage() {
       setLocalError("This challenge is for new participants only. You're already a 10000 Coders student — share the link with friends!");
       return;
     }
-    setLocalError(otpError || reduxError || "Failed to send OTP. Please try again.");
+    setLocalError(otpError || reduxError || "Unable to send verification code. Please try again.");
   };
 
   const handleVerifyOTP = async (code) => {
@@ -351,7 +350,7 @@ export default function ChallengeInterfacePage() {
     dispatch(clearError());
     setOtpCode(code);
     if (!code || code.length !== 6) {
-      setLocalError("Please enter a valid 6-digit OTP code");
+      setLocalError("Enter the 6-digit verification code.");
       return;
     }
 
@@ -398,7 +397,7 @@ export default function ChallengeInterfacePage() {
               }
             } catch (_) {}
           }
-          setLocalError(typeof error === 'object' && error?.message ? error.message : error?.message || "Registration failed. Please try again.");
+          setLocalError(typeof error === "object" && error?.message ? error.message : error?.message || "Registration could not be completed. Please try again.");
           setOtpVerified(false);
           setOtpStep("phone");
           setPendingRegistrationData(null);
@@ -423,42 +422,42 @@ export default function ChallengeInterfacePage() {
 
   const handleSendOTPFromDetails = async () => {
     if (!phone.trim() || phone.length !== 10) {
-      setLocalError("Please enter a valid 10-digit mobile number");
+      setLocalError("Enter a valid 10-digit phone number.");
       return;
     }
     if (!formData.name.trim()) {
-      setLocalError("Please enter your name");
+      setLocalError("Full name is required.");
       return;
     }
     const emailTrim = (formData.email || "").trim();
     if (!emailTrim) {
-      setLocalError("Please enter your email");
+      setLocalError("Email address is required.");
       return;
     }
     if (!isValidEmail(formData.email)) {
-      setLocalError("Please enter a valid email address");
+      setLocalError("Enter a valid email address.");
       return;
     }
     if (!(formData.address || "").trim()) {
-      setLocalError("Please enter your address");
+      setLocalError("Address is required.");
       return;
     }
     if (!(formData.qualification || "").trim()) {
-      setLocalError("Please enter your qualification");
+      setLocalError("Highest qualification is required.");
       return;
     }
     if (!(formData.college_name || "").trim()) {
-      setLocalError("Please enter your college name");
+      setLocalError("Institution name is required.");
       return;
     }
     const yop = formData.year_of_passing;
     if (yop === "" || yop == null || String(yop).trim() === "") {
-      setLocalError("Please enter year of passing");
+      setLocalError("Year of completion is required.");
       return;
     }
     const yearNum = Number(yop);
     if (Number.isNaN(yearNum) || yearNum < 1900 || yearNum > 2100) {
-      setLocalError("Please enter a valid year of passing (1900–2100)");
+      setLocalError("Enter a year between 1900 and 2100.");
       return;
     }
     setLocalError(null);
@@ -484,7 +483,7 @@ export default function ChallengeInterfacePage() {
         setLocalError("This challenge is for new participants only. You're already a 10000 Coders student — share the link with friends!");
         return;
       }
-      setLocalError(otpError || "Failed to send OTP. Please try again.");
+      setLocalError(otpError || "Unable to send verification code. Please try again.");
       return;
     }
     setPendingRegistrationData(registrationData);
@@ -573,9 +572,11 @@ export default function ChallengeInterfacePage() {
             className="h-16 mb-8"
           />
           <h1 className="text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">
-            {challenge?.title || 'Challenge'}<br />
-            Your Skills.<br />
-            <span className="text-orange-500">Master the Code.</span>
+            <span className="block text-white">{challenge?.title || "Challenge"}</span>
+            <span className="block mt-3 text-2xl lg:text-3xl font-semibold text-white/95">
+              Online skill test.
+            </span>
+            <span className="block mt-1 text-orange-500">MCQs & coding.</span>
           </h1>
           <p className="text-gray-300 text-lg leading-relaxed mb-8">
             Enter the arena where logic meets creativity. Solve real-world challenges, track your progress, and join a community of elite developers.
@@ -607,10 +608,10 @@ export default function ChallengeInterfacePage() {
         <div className="lg:hidden absolute top-0 right-0 -mr-16 -mt-16 w-52 h-52 sm:-mr-20 sm:-mt-20 sm:w-64 sm:h-64 bg-orange-100 rounded-full blur-3xl opacity-60 pointer-events-none"></div>
         <div className="lg:hidden absolute bottom-0 left-0 -ml-16 -mb-16 w-52 h-52 sm:-ml-20 sm:-mb-20 sm:w-64 sm:h-64 bg-blue-100 rounded-full blur-3xl opacity-60 pointer-events-none"></div>
 
-        <div className="relative z-10 max-w-md w-full mx-auto h-full min-h-0 flex flex-col">
-          <div className="bg-white/95 backdrop-blur-md lg:bg-transparent p-5 sm:p-6 lg:p-0 rounded-2xl lg:rounded-none shadow-lg lg:shadow-none border border-white/20 lg:border-none flex flex-col h-full min-h-0">
+        <div className="relative z-10 mx-auto flex h-full min-h-0 w-full max-w-md flex-col">
+          <div className="bg-white/95 backdrop-blur-md lg:bg-transparent p-5 sm:p-6 lg:p-0 rounded-2xl lg:rounded-none shadow-lg lg:shadow-none border border-white/20 lg:border-none flex flex-col flex-1 min-h-0">
             {/* Mobile Logo */}
-            <div className="lg:hidden mb-8 sm:mb-12 flex justify-center flex-shrink-0">
+            <div className="lg:hidden mb-5 sm:mb-6 flex justify-center flex-shrink-0">
               <img
                 src="/logos/10k_logo_black.webp"
                 alt="10000Coders"
@@ -618,164 +619,290 @@ export default function ChallengeInterfacePage() {
               />
             </div>
 
-            <div className="scrollbar-hide flex-1 min-h-0 overflow-y-auto">
-              {/* Timer in form section when challenge not started yet (verified + registered) */}
-              {otpVerified && isRegistered && challengeNotStarted && startAtMs != null ? (
-                <div className="text-center py-6 sm:py-8">
-                  <div className="animate-pulse rounded-full h-14 w-14 sm:h-16 sm:w-16 bg-orange-100 mx-auto mb-4 sm:mb-6 flex items-center justify-center">
-                    <span className="text-xl sm:text-2xl">⏱</span>
-                  </div>
-                  <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">Test will start in</h2>
-                  <p className="text-2xl sm:text-3xl font-mono font-bold text-orange-600 mb-3 sm:mb-4 tabular-nums">
-                    {formatCountdown(Math.max(0, startAtMs - now))}
-                  </p>
-                  <p className="text-gray-500 text-sm">Stay on this page. The challenge will begin automatically.</p>
+            {/* Timer (full width when waiting for start) */}
+            {otpVerified && isRegistered && challengeNotStarted && startAtMs != null ? (
+              <div className="flex flex-col flex-1 justify-center text-center py-6 sm:py-8">
+                <div className="animate-pulse rounded-full h-14 w-14 sm:h-16 sm:w-16 bg-orange-100 mx-auto mb-4 sm:mb-6 flex items-center justify-center">
+                  <span className="text-xl sm:text-2xl">⏱</span>
                 </div>
-              ) : (
-              <>
-              <div className="mb-8 sm:mb-10">
-                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
-                  {otpStep === "otp" ? "Verify your number" : "Join the challenge"}
-                </h2>
-                <p className="text-sm sm:text-base text-gray-600">
-                  {otpStep === "otp"
-                    ? `Enter the 6-digit code we sent to  ${formatPhoneInputDisplay(phone).trim()}`
-                    : "Share your details below. We'll send a one-time code to your phone to verify and get you in."}
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">Test will start in</h2>
+                <p className="text-2xl sm:text-3xl font-mono font-bold text-orange-600 mb-3 sm:mb-4 tabular-nums">
+                  {formatCountdown(Math.max(0, startAtMs - now))}
                 </p>
+                <p className="text-gray-500 text-sm">Stay on this page. The challenge will begin automatically.</p>
               </div>
-
-              {displayError && (
-                <div className="mb-5 sm:mb-6 p-3 sm:p-4 rounded-xl bg-red-50 border border-red-200 flex items-start gap-3">
-                  <div className="text-red-500 mt-1">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                  </div>
-                  <p className="text-sm text-red-700 font-medium leading-snug">{displayError}</p>
-                </div>
-              )}
-
-              <div className="space-y-5 sm:space-y-6">
-                {otpStep !== "otp" ? (
-                  <form onSubmit={(e) => { e.preventDefault(); handleSendOTPFromDetails(); }} className="animate-fadeIn space-y-3 sm:space-y-4">
-                <div>
-                  <label htmlFor="phone" className="block text-sm font-semibold text-gray-900 mb-2">Mobile Number (India only) *</label>
-                  <p className="text-xs text-gray-500 mb-1">10-digit number.</p>
-                  <div className="flex rounded-xl border border-gray-200 bg-gray-50 overflow-hidden focus-within:ring-2 focus-within:ring-gray-900 focus-within:border-transparent">
-                    <span className="inline-flex items-center pl-4 text-gray-500"><FaPhone className="h-5 w-5 mr-2" /></span>
-                    <input type="tel" id="phone" value={formatPhoneInputDisplay(phone)} onChange={handlePhoneChange} maxLength={14} inputMode="numeric" pattern="[0-9 ]*" className="flex-1 min-w-0 pr-4 py-3 bg-transparent text-gray-900 font-medium outline-none placeholder:text-gray-400" placeholder="91 98765 43210" />
-                  </div>
-                </div>
-                <div>
-                  <label htmlFor="name" className="block text-sm font-semibold text-gray-900 mb-2">Full Name *</label>
-                  <input type="text" id="name" name="name" value={formData.name} onChange={handleFormChange} required className="block w-full px-4 py-3 sm:py-3.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none font-medium" placeholder="John Doe" />
-                </div>
-                <div>
-                  <label htmlFor="email" className="block text-sm font-semibold text-gray-900 mb-2">Email *</label>
-                  <input type="email" id="email" name="email" value={formData.email} onChange={handleFormChange} required className="block w-full px-4 py-3 sm:py-3.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none font-medium" placeholder="john@example.com" />
-                </div>
-                <div>
-                  <label htmlFor="address" className="block text-sm font-semibold text-gray-900 mb-2">Address *</label>
-                  <textarea id="address" name="address" value={formData.address} onChange={handleFormChange} rows={2} required className="block w-full px-4 py-3 sm:py-3.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none font-medium" placeholder="Your address" />
-                </div>
-                <div>
-                  <label htmlFor="qualification" className="block text-sm font-semibold text-gray-900 mb-2">Qualification *</label>
-                  <input type="text" id="qualification" name="qualification" value={formData.qualification} onChange={handleFormChange} required className="block w-full px-4 py-3 sm:py-3.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none font-medium" placeholder="e.g. B.Tech" />
-                </div>
-                <div>
-                  <label htmlFor="college_name" className="block text-sm font-semibold text-gray-900 mb-2">College name *</label>
-                  <input type="text" id="college_name" name="college_name" value={formData.college_name} onChange={handleFormChange} required className="block w-full px-4 py-3 sm:py-3.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none font-medium" placeholder="Your college name" />
-                </div>
-                <div>
-                  <label htmlFor="year_of_passing" className="block text-sm font-semibold text-gray-900 mb-2">Year of passing *</label>
-                  <input type="number" id="year_of_passing" name="year_of_passing" value={formData.year_of_passing} onChange={handleFormChange} min={1900} max={2100} required className="block w-full px-4 py-3 sm:py-3.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none font-medium" placeholder="2024" />
-                </div>
-                <button type="submit" disabled={otpLoading || !phone.trim() || phone.length !== 10 || !formData.name.trim() || !(formData.email || "").trim() || !(formData.address || "").trim() || !(formData.qualification || "").trim() || !(formData.college_name || "").trim() || formData.year_of_passing === "" || formData.year_of_passing == null} className="w-full flex items-center justify-center px-6 sm:px-8 py-3.5 sm:py-4 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg disabled:bg-gray-300 disabled:cursor-not-allowed transform hover:-translate-y-0.5 active:translate-y-0 mt-4">
-                  {otpLoading ? <><FaSpinner className="animate-spin mr-3" /> Sending OTP...</> : <>Send OTP & enter challenge <FaArrowLeft className="ml-2 rotate-180" /></>}
-                </button>
-              </form>
             ) : (
-              <div className="animate-fadeIn">
-                <div className="mb-6 sm:mb-8">
-                  <label className="block text-sm font-semibold text-gray-900 mb-3">
-                    One-Time Password
-                  </label>
-                  <OTPInput 
-                    value={otpCode} 
-                    onChange={setOtpCode} 
-                    onComplete={handleVerifyOTP}
-                    error={displayError}
-                    onClearError={() => {
-                      setLocalError(null);
-                      dispatch(clearError());
-                      clearOtpError();
-                    }}
-                  />
-                </div>
+              <>
+                {/* Title: centered between logo and form */}
+                <header className="flex shrink-0 flex-col items-center justify-center text-center px-2 py-6 sm:py-10">
+                  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
+                    {otpStep === "otp" ? "Enter the OTP" : "Enter the test"}
+                  </h2>
+                  {otpStep === "otp" ? (
+                    <p className="mt-3 max-w-sm text-sm text-gray-600">
+                      Code sent to{" "}
+                      <span className="font-semibold text-gray-900 whitespace-nowrap">
+                        {formatPhoneInputDisplay(phone).trim()}
+                      </span>
+                    </p>
+                  ) : null}
+                </header>
 
-                <button
-                  onClick={() => handleVerifyOTP(otpCode)}
-                  disabled={otpLoading || otpCode.length !== 6}
-                  className="w-full flex items-center justify-center px-6 sm:px-8 py-3.5 sm:py-4 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg disabled:bg-gray-300 disabled:cursor-not-allowed transform hover:-translate-y-0.5 active:translate-y-0 mb-6"
-                >
-                  {otpLoading ? (
-                    <>
-                      <FaSpinner className="animate-spin mr-3" />
-                      Verifying...
-                    </>
-                  ) : (
-                    <>
-                      Verify & Enter
-                      <FaLock className="ml-2" />
-                    </>
+                {/* Scrollable fields only */}
+                <div className="scrollbar-hide flex-1 min-h-0 overflow-y-auto overscroll-contain pr-0.5 -mr-0.5">
+                  {displayError && (
+                    <div className="mb-4 sm:mb-5 p-3 sm:p-4 rounded-xl bg-red-50 border border-red-200 flex items-start gap-3">
+                      <div className="text-red-500 mt-1 shrink-0">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                      </div>
+                      <p className="text-sm text-red-700 font-medium leading-snug">{displayError}</p>
+                    </div>
                   )}
-                </button>
 
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm font-medium">
-                  <button
-                    onClick={() => {
-                      setOtpStep("phone");
-                      resetOtp();
-                      setIsRegistered(false);
-                      setOtpCode("");
-                      setOtpVerified(false);
-                      setPendingRegistrationData(null);
-                      setPendingAction(null);
-                    }}
-                    className="text-gray-500 hover:text-gray-900 transition-colors"
-                  >
-                    Change number
-                  </button>
-
-                  <div className="sm:text-right">
-                    {countdown > 0 ? (
-                      <span className="text-gray-400">Resend code in {countdown}s</span>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          handleSendOTP();
-                          setOtpCode("");
+                  <div className="space-y-4 sm:space-y-5 pb-2">
+                    {otpStep !== "otp" ? (
+                      <form
+                        id="challenge-interface-register-form"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          handleSendOTPFromDetails();
                         }}
-                        disabled={otpLoading}
-                        className="text-orange-600 hover:text-orange-700 transition-colors"
+                        className="animate-fadeIn space-y-3 sm:space-y-4"
                       >
-                        Resend Code
-                      </button>
+                        <div>
+                          <label htmlFor="phone" className="block text-sm font-semibold text-gray-900 mb-2">
+                            Phone number <span className="text-red-600">*</span>
+                          </label>
+                          <div className="flex rounded-xl border border-gray-200 bg-gray-50 overflow-hidden focus-within:ring-2 focus-within:ring-orange-500/30 focus-within:border-orange-400">
+                            <span className="inline-flex items-center pl-4 text-gray-500">
+                              <FaPhone className="h-5 w-5 mr-2" />
+                            </span>
+                            <input
+                              type="tel"
+                              id="phone"
+                              value={formatPhoneInputDisplay(phone)}
+                              onChange={handlePhoneChange}
+                              maxLength={14}
+                              inputMode="numeric"
+                              pattern="[0-9 ]*"
+                              autoComplete="tel"
+                              className="flex-1 min-w-0 pr-4 py-3 bg-transparent text-gray-900 font-medium outline-none placeholder:text-gray-400"
+                              placeholder="98765 43210"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label htmlFor="name" className="block text-sm font-semibold text-gray-900 mb-2">
+                            Full name <span className="text-red-600">*</span>
+                          </label>
+                          <p className="text-xs text-gray-500 mb-1.5">As on official ID or academic records.</p>
+                          <input
+                            type="text"
+                            id="name"
+                            name="name"
+                            value={formData.name}
+                            onChange={handleFormChange}
+                            required
+                            autoComplete="name"
+                            className="block w-full px-4 py-3 sm:py-3.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400 outline-none font-medium"
+                            placeholder="e.g. Priya Sharma"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="email" className="block text-sm font-semibold text-gray-900 mb-2">
+                            Email address <span className="text-red-600">*</span>
+                          </label>
+                          <input
+                            type="email"
+                            id="email"
+                            name="email"
+                            value={formData.email}
+                            onChange={handleFormChange}
+                            required
+                            autoComplete="email"
+                            className="block w-full px-4 py-3 sm:py-3.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400 outline-none font-medium"
+                            placeholder="name@company.com"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="address" className="block text-sm font-semibold text-gray-900 mb-2">
+                            Current address <span className="text-red-600">*</span>
+                          </label>
+                          <textarea
+                            id="address"
+                            name="address"
+                            value={formData.address}
+                            onChange={handleFormChange}
+                            rows={2}
+                            required
+                            autoComplete="street-address"
+                            className="block w-full px-4 py-3 sm:py-3.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400 outline-none font-medium resize-y min-h-[4.5rem]"
+                            placeholder="Street, area, city, PIN code"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="qualification" className="block text-sm font-semibold text-gray-900 mb-2">
+                            Highest qualification <span className="text-red-600">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            id="qualification"
+                            name="qualification"
+                            value={formData.qualification}
+                            onChange={handleFormChange}
+                            required
+                            className="block w-full px-4 py-3 sm:py-3.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400 outline-none font-medium"
+                            placeholder="e.g. B.Tech, B.Sc., Diploma"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="college_name" className="block text-sm font-semibold text-gray-900 mb-2">
+                            Institution / college <span className="text-red-600">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            id="college_name"
+                            name="college_name"
+                            value={formData.college_name}
+                            onChange={handleFormChange}
+                            required
+                            className="block w-full px-4 py-3 sm:py-3.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400 outline-none font-medium"
+                            placeholder="College or university name"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="year_of_passing" className="block text-sm font-semibold text-gray-900 mb-2">
+                            Year of completion <span className="text-red-600">*</span>
+                          </label>
+                          <p className="text-xs text-gray-500 mb-1.5">Graduation or expected year of completion.</p>
+                          <input
+                            type="number"
+                            id="year_of_passing"
+                            name="year_of_passing"
+                            value={formData.year_of_passing}
+                            onChange={handleFormChange}
+                            min={1900}
+                            max={2100}
+                            required
+                            className="block w-full px-4 py-3 sm:py-3.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400 outline-none font-medium"
+                            placeholder="e.g. 2024"
+                          />
+                        </div>
+                      </form>
+                    ) : (
+                      <div className="animate-fadeIn">
+                        <div className="mb-5 sm:mb-6">
+                          <label className="block text-sm font-semibold text-gray-900 mb-3">
+                            Verification code
+                          </label>
+                          <OTPInput
+                            value={otpCode}
+                            onChange={setOtpCode}
+                            onComplete={handleVerifyOTP}
+                            error={displayError}
+                            onClearError={() => {
+                              setLocalError(null);
+                              dispatch(clearError());
+                              clearOtpError();
+                            }}
+                          />
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm font-medium pb-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOtpStep("phone");
+                              resetOtp();
+                              setIsRegistered(false);
+                              setOtpCode("");
+                              setOtpVerified(false);
+                              setPendingRegistrationData(null);
+                              setPendingAction(null);
+                            }}
+                            className="text-gray-500 hover:text-gray-900 transition-colors text-left"
+                          >
+                            Edit phone number
+                          </button>
+                          <div className="sm:text-right">
+                            {countdown > 0 ? (
+                              <span className="text-gray-400">Resend OTP in {countdown}s</span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleSendOTP();
+                                  setOtpCode("");
+                                }}
+                                disabled={otpLoading}
+                                className="text-orange-600 hover:text-orange-700 transition-colors"
+                              >
+                                Resend OTP
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
-              </div>
-            )}
-              </div>
-              </>
-              )}
-            </div>
 
-            <div className="mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-gray-100 text-center flex-shrink-0">
-              <p className="text-xs text-gray-400">
-                Protected by 10000Coders Secure Login System.
-              </p>
-            </div>
+                {/* Primary actions + footer: always visible below scroll */}
+                <footer className="flex-shrink-0 mt-4 sm:mt-5 pt-4 sm:pt-5 border-t border-gray-200/80 lg:border-gray-100 space-y-4">
+                  {otpStep !== "otp" ? (
+                    <button
+                      type="submit"
+                      form="challenge-interface-register-form"
+                      disabled={
+                        otpLoading ||
+                        !phone.trim() ||
+                        phone.length !== 10 ||
+                        !formData.name.trim() ||
+                        !(formData.email || "").trim() ||
+                        !(formData.address || "").trim() ||
+                        !(formData.qualification || "").trim() ||
+                        !(formData.college_name || "").trim() ||
+                        formData.year_of_passing === "" ||
+                        formData.year_of_passing == null
+                      }
+                      className="w-full flex items-center justify-center px-6 sm:px-8 py-3.5 sm:py-4 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    >
+                      {otpLoading ? (
+                        <>
+                          <FaSpinner className="animate-spin mr-3" /> Sending code…
+                        </>
+                      ) : (
+                        "Enter"
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleVerifyOTP(otpCode)}
+                      disabled={otpLoading || otpCode.length !== 6}
+                      className="w-full flex items-center justify-center px-6 sm:px-8 py-3.5 sm:py-4 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    >
+                      {otpLoading ? (
+                        <>
+                          <FaSpinner className="animate-spin mr-3" />
+                          Checking…
+                        </>
+                      ) : (
+                        <>
+                          Enter
+                          <FaLock className="ml-2" />
+                        </>
+                      )}
+                    </button>
+                  )}
+                  <p className="text-xs text-center text-gray-400 leading-relaxed">
+                    Secured by 10000 Coders. Your information is used only for this test.
+                  </p>
+                </footer>
+              </>
+            )}
           </div>
         </div>
       </div>
