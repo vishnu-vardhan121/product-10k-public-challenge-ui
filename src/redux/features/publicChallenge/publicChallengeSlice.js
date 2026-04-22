@@ -58,14 +58,26 @@ export const fetchChallenges = createAsyncThunk(
   }
 );
 
+/** @param {string|number|{ challengeId: string|number, preserveExisting?: boolean }} arg */
+function normalizeFetchChallengeDetailsArg(arg) {
+  if (arg != null && typeof arg === "object" && !Array.isArray(arg) && "challengeId" in arg) {
+    return {
+      challengeId: arg.challengeId,
+      preserveExisting: Boolean(arg.preserveExisting),
+    };
+  }
+  return { challengeId: arg, preserveExisting: false };
+}
+
 export const fetchChallengeDetails = createAsyncThunk(
-  'publicChallenge/fetchChallengeDetails',
-  async (challengeId, { rejectWithValue }) => {
+  "publicChallenge/fetchChallengeDetails",
+  async (arg, { rejectWithValue }) => {
+    const { challengeId } = normalizeFetchChallengeDetailsArg(arg);
     try {
       const response = await getChallengeDetails(challengeId);
       return response;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch challenge details');
+      return rejectWithValue(error.response?.data?.message || "Failed to fetch challenge details");
     }
   }
 );
@@ -295,10 +307,18 @@ const publicChallengeSlice = createSlice({
 
     // Fetch Challenge Details
     builder
-      .addCase(fetchChallengeDetails.pending, (state) => {
+      .addCase(fetchChallengeDetails.pending, (state, action) => {
         state.loading.challengeDetails = true;
         state.error = null;
-        state.currentChallenge = null;
+        const metaArg = action.meta.arg;
+        const preserve =
+          metaArg != null &&
+          typeof metaArg === "object" &&
+          !Array.isArray(metaArg) &&
+          Boolean(metaArg.preserveExisting);
+        if (!preserve) {
+          state.currentChallenge = null;
+        }
       })
       .addCase(fetchChallengeDetails.fulfilled, (state, action) => {
         state.loading.challengeDetails = false;

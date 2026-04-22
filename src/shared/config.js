@@ -3,6 +3,9 @@
 
 const APP_VERSION = "1.0.0"; // Update this with each new build
 
+/** Main institute / marketing site — “home” exits from this app should land here */
+export const MARKETING_SITE_URL = "https://www.10000coders.in/";
+
 /** Extra count added to real registration count for social proof / trust (e.g. "100+ already enrolled") */
 export const PARTICIPANTS_TRUST_OFFSET = 100;
 

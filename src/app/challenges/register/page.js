@@ -13,31 +13,23 @@ import {
     clearError,
 } from "@/redux/features/publicChallenge/publicChallengeSlice";
 import { usePhoneOTP } from "@/hooks/usePhoneOTP";
-import { getDisplayParticipantCount } from "@/shared/config";
+import { getDisplayParticipantCount, MARKETING_SITE_URL } from "@/shared/config";
 import BatchStudentShareModal from "@/components/shared/BatchStudentShareModal";
+import OTPInput from "@/components/registration/OTPInput";
+import { REGISTER_PAGE_COPY as COPY } from "./registerCopy";
 
-import {
-    FaSpinner,
-    FaCheckCircle,
-    FaExclamationTriangle,
-    FaArrowLeft,
-    FaPhone,
-    FaUser,
-    FaEnvelope,
-    FaMapMarkerAlt,
-    FaGraduationCap,
-    FaCalendarAlt,
-    FaUsers,
-    FaClock,
-    FaCode,
-    FaQuestionCircle,
-    FaCopy,
-    FaCheck,
-    FaInfoCircle,
-    FaListAlt,
-} from "react-icons/fa";
+import { FaSpinner, FaCheckCircle, FaExclamationTriangle, FaUsers, FaLaptop } from "react-icons/fa";
 import { formatPhoneNumber, formatPhoneInputDisplay, parsePhoneInputValue, validateIndianPhoneNumber } from "@/services/phoneUtils";
-import { motion, AnimatePresence } from "framer-motion";
+
+/** Turn slug-style API titles into readable headings (e.g. scholarship → Scholarship). */
+function displayChallengeTitle(title) {
+    if (!title || typeof title !== "string") return title || "";
+    const t = title.trim();
+    if (/^[a-z0-9_-]+$/i.test(t) && !/\s/.test(t)) {
+        return t.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    }
+    return t;
+}
 
 /** Basic email format validation (required, has @ and domain). */
 function isValidEmail(value) {
@@ -393,10 +385,10 @@ export default function RegisterPage() {
 
     if (challengeLoading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center pt-20">
+            <div className="flex min-h-screen items-center justify-center bg-gray-50">
                 <div className="text-center">
-                    <FaSpinner className="animate-spin text-4xl text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600">Loading challenge details...</p>
+                    <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-gray-200 border-t-orange-600" />
+                    <p className="text-sm font-medium text-gray-600">{COPY.loading}</p>
                 </div>
             </div>
         );
@@ -407,291 +399,221 @@ export default function RegisterPage() {
 
 
     return (
-        <div className="h-screen overflow-hidden flex flex-col md:flex-row bg-white">
+        <div className="grid h-dvh min-h-0 w-full grid-cols-1 overflow-hidden bg-gray-50 md:grid-cols-[minmax(0,42%)_minmax(0,58%)] md:h-screen md:bg-white">
             <BatchStudentShareModal
                 open={showBatchStudentModal}
                 onClose={() => setShowBatchStudentModal(false)}
                 referrerBatch={searchParams.get("utm_campaign") || undefined}
                 referrerName={searchParams.get("utm_term") || undefined}
             />
-            {/* Left Side - Immersive Brand Sidebar (Desktop Only) */}
-            <div className="hidden md:flex md:w-5/12 bg-[#0F0F0F] relative text-white flex-col justify-between overflow-hidden md:h-screen md:sticky md:top-0">
-                {/* Background Gradients & Effects */}
-                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-br from-orange-600/30 to-red-600/30 rounded-full mix-blend-screen filter blur-[100px] opacity-50 animate-pulse"></div>
-                <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-orange-900/40 rounded-full mix-blend-screen filter blur-[80px] opacity-30"></div>
-                <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-5"></div>
-
-                <div className="relative z-10 p-12 h-full flex flex-col items-start text-left">
-                    {/* Logo Area */}
-                    <div className="mb-auto">
-                        <Link href="/" className="inline-block group">
-                            <motion.div
-                                whileHover={{ scale: 1.05 }}
-                                className="bg-white/5 backdrop-blur-sm p-4 rounded-2xl border border-white/10"
-                            >
-                                <Image
-                                    src="/logos/10k_logo_white.webp"
-                                    alt="10000Coders Logo"
-                                    width={240}
-                                    height={80}
-                                    className="h-16 w-auto object-contain"
-                                    priority
-                                />
-                            </motion.div>
-                        </Link>
+            <div className="relative hidden min-h-0 md:flex md:flex-col md:justify-end md:overflow-hidden md:bg-gray-900 md:p-12 lg:p-14">
+                <div className="absolute inset-0">
+                    <img src="/coding/DSC_5858.webp" alt="" className="h-full w-full object-cover opacity-50" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-gray-900/88 to-gray-900/45" />
+                </div>
+                <div className="relative z-10 flex max-w-xl flex-col gap-6 text-left">
+                    <Link href={MARKETING_SITE_URL} className="inline-block w-fit">
+                        <Image
+                            src="/logos/10k_logo_white.webp"
+                            alt="10000Coders"
+                            width={200}
+                            height={64}
+                            className="h-12 w-auto opacity-95 lg:h-14"
+                            priority
+                        />
+                    </Link>
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-widest text-orange-200/90">{COPY.left.eyebrow}</p>
+                        <h1 className="mt-2 text-3xl font-bold leading-tight tracking-tight text-white lg:text-4xl">
+                            {displayChallengeTitle(challenge.title)}
+                        </h1>
+                        {challenge.description ? (
+                            <p className="mt-4 max-w-lg border-l-2 border-orange-500/60 pl-4 text-sm leading-relaxed text-gray-300 lg:text-base">
+                                {challenge.description}
+                            </p>
+                        ) : null}
                     </div>
-
-                    {/* Challenge Details - Centered Vertically */}
-                    <div className="my-0 space-y-8 w-full">
+                    <div className="flex flex-wrap gap-2 pt-1">
+                        <span className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-medium text-white/95 backdrop-blur-sm">
+                            {challenge.target_audience === "COLLEGE_STUDENTS" ? "College program" : "Open registration"}
+                        </span>
+                        <span className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-medium text-white/95 backdrop-blur-sm">
+                            OTP verification
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-sm">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-orange-500/90 text-white">
+                            <FaUsers className="h-4 w-4" aria-hidden />
+                        </div>
                         <div>
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.2 }}
-                            >
-                                <span className="inline-flex items-center px-4 py-1.5 rounded-full text-sm font-bold bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-lg shadow-orange-500/20 mb-6 tracking-wide uppercase">
-                                    <FaCode className="mr-2" />
-                                    Active Challenge
-                                </span>
-
-                                {/* Desktop Title */}
-                                <h1 className="text-5xl font-extrabold mb-6 leading-tight tracking-tight text-white">
-                                    {challenge.title}
-                                </h1>
-                                {challenge.description && (
-                                    <p className="text-lg text-gray-300 leading-relaxed max-w-lg font-light">
-                                        {challenge.description}
-                                    </p>
-                                )}
-                            </motion.div>
-                        </div>
-
-                        {/* Stats Grid */}
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ delay: 0.4 }}
-                            className="grid grid-cols-2 gap-4"
-                        >
-                            <div className="p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
-                                <div className="text-3xl font-bold text-orange-500 mb-1">
-                                    <FaCode />
-                                </div>
-                                <div className="text-sm text-gray-400 font-medium uppercase tracking-wider">
-                                    Problem Solving
-                                </div>
-                            </div>
-
-                            {challenge.target_audience === 'COLLEGE_STUDENTS' && (
-                                <div className="p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
-                                    <div className="text-3xl font-bold text-orange-500 mb-1">
-                                        <FaListAlt />
-                                    </div>
-                                    <div className="text-sm text-gray-400 font-medium uppercase tracking-wider">
-                                        Aptitude MCQs
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className={`${challenge.target_audience === 'COLLEGE_STUDENTS' ? 'col-span-2' : 'col-span-1'} p-5 rounded-2xl bg-gradient-to-r from-orange-600/20 to-red-600/20 border border-orange-500/20 backdrop-blur-md flex items-center justify-between`}>
-                                <div>
-                                    <div className="text-2xl font-bold text-white mb-1">
-                                        {getDisplayParticipantCount(challenge.registration_count)}
-                                    </div>
-                                    <div className="text-xs text-gray-300 uppercase tracking-wider">
-                                        registered
-                                    </div>
-                                </div>
-                                <div className="h-10 w-10 rounded-full bg-orange-500 flex items-center justify-center text-white shadow-lg shadow-orange-500/50">
-                                    <FaUsers />
-                                </div>
-                            </div>
-                        </motion.div>
-                    </div>
-
-                    {/* Footer */}
-                    <div className="mt-auto pt-8 border-t border-white/10 text-sm text-gray-500 flex justify-between items-center">
-                        <p>© 2026 10000Coders. All rights reserved.</p>
-                        <div className="flex gap-4 text-xl text-gray-400">
-                            {/* Social icons could go here */}
+                            <p className="text-lg font-semibold tabular-nums text-white">
+                                {getDisplayParticipantCount(challenge.registration_count)}
+                            </p>
+                            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{COPY.left.participantLabel}</p>
                         </div>
                     </div>
+                    <p className="pt-2 text-xs text-gray-500">© {new Date().getFullYear()} 10000Coders</p>
                 </div>
             </div>
 
-            {/* Right Side - Scrollable Form Area */}
-            <div className="w-full md:w-7/12 bg-white flex flex-col min-h-0 overflow-hidden">
+            <div className="flex min-h-0 w-full flex-col overflow-hidden md:bg-gray-50">
                 {/* Error View (Replaces Form) */}
                 {!currentChallenge && !challengeLoading ? (
-                    <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center p-8 text-center animate-fadeIn">
-                        <div className="relative w-64 h-64 md:w-80 md:h-80 mb-8 transform transition-transform hover:scale-105 duration-300">
+                    <div className="scrollbar-hide flex flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-12 text-center">
+                        <div className="relative mb-8 h-48 w-48 sm:h-56 sm:w-56">
                             <Image
                                 src="/helpers/timeout.jpg"
-                                alt="Timeout or Error"
+                                alt=""
                                 fill
-                                className="object-contain drop-shadow-xl"
+                                className="object-contain"
                                 priority
                             />
                         </div>
-                        <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-6 tracking-tight leading-tight">
-                            {reduxError && reduxError.toLowerCase().includes('registration') ? 'REGISTRATION CLOSED' : 'CHALLENGE NOT FOUND'}
+                        <h2 className="mb-3 text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+                            {reduxError && String(reduxError).toLowerCase().includes("registration")
+                                ? COPY.challengeNotFound.titleClosed
+                                : COPY.challengeNotFound.titleMissing}
                         </h2>
-                        <p className="text-xl md:text-2xl text-gray-600 mb-10 font-bold max-w-lg leading-relaxed">
-                            {reduxError && reduxError.toLowerCase().includes('registration') ? reduxError : "Please check your URL properly."}
+                        <p className="mb-8 max-w-md text-sm leading-relaxed text-gray-600 sm:text-base">
+                            {reduxError && String(reduxError).toLowerCase().includes("registration")
+                                ? reduxError
+                                : "Check the link or try again from the challenges page."}
                         </p>
                         <Link
-                            href="/"
-                            className="inline-flex items-center justify-center bg-gray-900 text-white px-10 py-4 rounded-xl hover:bg-black transition-all hover:scale-105 font-extrabold text-lg shadow-xl hover:shadow-2xl ring-4 ring-gray-100"
+                            href={MARKETING_SITE_URL}
+                            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-gray-900 px-8 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-gray-800"
                         >
-                            GO TO HOME
+                            {COPY.challengeNotFound.cta}
                         </Link>
                     </div>
                 ) : (
-                    <div className="flex-1 min-h-0 overflow-y-auto w-full max-w-2xl mx-auto px-4 sm:px-5 py-6 sm:py-8 md:p-16 flex flex-col justify-start md:justify-center pb-[env(safe-area-inset-bottom)]">
-
-                        {/* Mobile Header (Integrated) */}
-                        {/* Mobile Header (Integrated) */}
-                        <div className="md:hidden mb-8">
-                            {/* Mobile Header Card */}
-                            {/* Mobile Header Card */}
-                            <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-black p-8 shadow-2xl shadow-gray-900/20 mb-8">
-                                {/* Decorative Blobs */}
-                                <div className="absolute top-0 right-0 w-40 h-40 bg-orange-500/20 rounded-full blur-3xl -mr-10 -mt-10"></div>
-                                <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl -ml-6 -mb-6"></div>
-
-                                <div className="relative z-10 text-white flex flex-col items-center text-center">
-                                    <div className="mb-6 relative">
-                                        <div className="absolute -inset-4 bg-white/5 rounded-full blur-lg"></div>
-                                        <Image
-                                            src="/logos/10k_logo_white.webp"
-                                            alt="10000Coders"
-                                            width={180}
-                                            height={60}
-                                            className="h-14 w-auto object-contain relative z-10"
-                                            priority
-                                        />
-                                    </div>
-
-                                    <h1 className="text-3xl font-black leading-tight mb-3 tracking-tight capitalize bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
-                                        {challenge.title}
-                                    </h1>
-
-                                    <p className="text-gray-300 font-medium text-sm leading-relaxed mb-6 max-w-xs mx-auto">
-                                        Join elite developers in this exclusive challenge. Prove your skills, build your portfolio, and accelerate your career.
-                                    </p>
-
-                                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/10 backdrop-blur-sm text-xs font-bold text-white uppercase tracking-widest">
-                                        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                                        Registration Closing Soon
-                                    </div>
-                                </div>
+                    <div className="scrollbar-hide mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col overflow-y-auto px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-8 md:max-w-xl md:py-8 lg:px-8">
+                        <div className="mb-5 shrink-0 border-b border-gray-200 pb-4 md:hidden">
+                            <div className="mb-3 flex items-center justify-center">
+                                <Image
+                                    src="/logos/10k_logo_black.webp"
+                                    alt="10000Coders"
+                                    width={160}
+                                    height={48}
+                                    className="h-9 w-auto"
+                                    priority
+                                />
                             </div>
-
-                            {/* Mobile Logo Header (Top Bar) - Kept simple above the card or integrated? 
-                                 Let's stick to just the card as the main header, maybe a simple nav above if needed. 
-                                 But for this specific request "why they are filling", the card is key. 
-                             */}
+                            <h1 className="text-center text-lg font-semibold leading-snug text-gray-900">
+                                {displayChallengeTitle(challenge.title)}
+                            </h1>
+                            <p className="mx-auto mt-2 max-w-sm text-center text-xs leading-relaxed text-gray-600">{COPY.mobile.subtitle}</p>
                         </div>
 
                         {success ? (
-                            <div className="flex-1 flex flex-col items-center justify-center py-8 text-center animate-fadeIn">
-                                <div className="relative w-64 h-64 md:w-80 md:h-80 mb-8 transform transition-transform hover:scale-105 duration-300">
-                                    <Image
-                                        src="/helpers/registered.jpg"
-                                        alt="Successfully Registered"
-                                        fill
-                                        className="object-contain drop-shadow-xl"
-                                        priority
-                                    />
+                            <div className="flex flex-1 flex-col items-center justify-center py-8 text-center">
+                                <div className="relative mb-8 h-44 w-44 sm:h-52 sm:w-52">
+                                    <Image src="/helpers/registered.jpg" alt="" fill className="object-contain" priority />
                                 </div>
-                                <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-4 tracking-tight leading-tight uppercase">
-                                    Successfully Registered!
-                                </h2>
-                                <p className="text-lg md:text-xl text-gray-600 mb-10 font-medium max-w-lg leading-relaxed">
-                                    Challenge timings will be announced soon. Stay tuned.
-                                </p>
-                                <Link
-                                    href="/"
-                                    className="inline-flex items-center justify-center bg-gray-900 text-white px-10 py-4 rounded-xl hover:bg-black transition-all hover:scale-105 font-extrabold text-lg shadow-xl hover:shadow-2xl ring-4 ring-gray-100"
+                                <h2 className="mb-2 text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">{COPY.success.title}</h2>
+                                <div className="mb-6 max-w-md space-y-3 text-sm leading-relaxed text-gray-600 sm:text-base">
+                                    <p>{COPY.success.body}</p>
+                                    {COPY.success.bodyFollowUp ? <p>{COPY.success.bodyFollowUp}</p> : null}
+                                </div>
+                                <div
+                                    role="note"
+                                    className="mb-8 flex w-full max-w-md gap-3 rounded-xl border-2 border-amber-400 bg-gradient-to-br from-amber-50 to-amber-100/80 p-4 text-left shadow-md ring-1 ring-amber-500/20 sm:p-4"
                                 >
-                                    GO TO HOME
+                                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white shadow-sm">
+                                        <FaLaptop className="h-5 w-5" aria-hidden />
+                                    </span>
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-bold tracking-tight text-amber-950 sm:text-base">
+                                            {COPY.success.laptopTitle}
+                                        </p>
+                                        <p className="mt-1.5 text-xs leading-relaxed text-amber-900/95 sm:text-sm">
+                                            {COPY.success.laptopBody}
+                                        </p>
+                                    </div>
+                                </div>
+                                {accessCodeValue ? (
+                                    <p className="mb-6 max-w-md rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 font-mono text-sm text-gray-800">
+                                        Access code: <span className="font-semibold">{accessCodeValue}</span>
+                                    </p>
+                                ) : null}
+                                <Link
+                                    href={MARKETING_SITE_URL}
+                                    className="inline-flex min-h-11 items-center justify-center rounded-xl bg-gray-900 px-8 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-gray-800"
+                                >
+                                    {COPY.success.cta}
                                 </Link>
                             </div>
                         ) : (
-                            <>
-                                <div className="mb-6 sm:mb-8">
-                                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2">
-                                        Register Now
-                                    </h2>
-                                    <p className="text-sm sm:text-base text-gray-500">
-                                        Fill in your details to get started with the challenge.
-                                    </p>
-                                </div>
+                            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-7 md:p-8">
+                                <header className="mb-5 border-b border-gray-100 pb-4 md:mb-6 md:pb-5">
+                                    <h2 className="text-xl font-bold tracking-tight text-gray-900 md:text-2xl">{COPY.form.title}</h2>
+                                    <p className="mt-1 text-xs leading-relaxed text-gray-600 md:mt-1.5 md:text-sm">{COPY.form.subtitle}</p>
+                                </header>
 
+                                {error ? (
+                                    <div
+                                        role="alert"
+                                        className="mb-5 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-800 sm:px-4"
+                                    >
+                                        <FaExclamationTriangle className="mt-0.5 shrink-0" aria-hidden />
+                                        <p className="min-w-0 break-words">{error}</p>
+                                    </div>
+                                ) : null}
 
-
-                                {/* Error Display */}
-                                <AnimatePresence>
-                                    {(error) && (
-                                        <motion.div
-                                            initial={{ opacity: 0, height: 0 }}
-                                            animate={{ opacity: 1, height: "auto" }}
-                                            exit={{ opacity: 0, height: 0 }}
-                                            className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-4 sm:mb-6 flex items-start gap-2 text-sm"
-                                        >
-                                            <FaExclamationTriangle className="shrink-0 mt-0.5" />
-                                            <p className="min-w-0 break-words">{error}</p>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-
-                                {/* Main Form */}
-                                {/* Main Form - Single Section */}
                                 <form onSubmit={handleSubmit} className="space-y-8">
 
-                                    {/* Personal Info Group */}
-                                    <div className="space-y-6">
-                                        <div>
-                                            <label htmlFor="name" className="block text-sm font-semibold text-gray-900 mb-2">
-                                                Full Name <span className="text-red-500">*</span>
-                                            </label>
-                                            <input
-                                                type="text"
-                                                id="name"
-                                                name="name"
-                                                value={formData.name}
-                                                onChange={handleInputChange}
-                                                required
-                                                className="w-full min-h-[48px] sm:min-h-0 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all font-medium text-base text-gray-900"
-                                                placeholder="Enter your full name"
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label htmlFor="email" className="block text-sm font-semibold text-gray-900 mb-2">
-                                                Email Address <span className="text-red-500">*</span>
-                                            </label>
-                                            <input
-                                                type="email"
-                                                id="email"
-                                                name="email"
-                                                value={formData.email}
-                                                onChange={handleInputChange}
-                                                required
-                                                className="w-full min-h-[48px] sm:min-h-0 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all font-medium text-base text-gray-900"
-                                                placeholder="name@example.com"
-                                            />
+                                    <div className="rounded-xl border border-gray-200 bg-gray-50/90 p-4 ring-1 ring-black/3 sm:p-5">
+                                        <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-gray-500">{COPY.form.sectionPersonal}</p>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label htmlFor="name" className="mb-1.5 block text-sm font-semibold text-gray-900">
+                                                    Full name <span className="text-red-600">*</span>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="name"
+                                                    name="name"
+                                                    value={formData.name}
+                                                    onChange={handleInputChange}
+                                                    required
+                                                    autoComplete="name"
+                                                    className="block min-h-[48px] w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 sm:min-h-0"
+                                                    placeholder="As on your ID"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-gray-900">
+                                                    Email <span className="text-red-600">*</span>
+                                                </label>
+                                                <input
+                                                    type="email"
+                                                    id="email"
+                                                    name="email"
+                                                    value={formData.email}
+                                                    onChange={handleInputChange}
+                                                    required
+                                                    autoComplete="email"
+                                                    className="block min-h-[48px] w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 sm:min-h-0"
+                                                    placeholder="name@example.com"
+                                                />
+                                            </div>
                                         </div>
                                     </div>
 
-                                    {/* Phone & Verification Group */}
-                                    <div className="space-y-4 sm:space-y-6 pt-4 border-t border-gray-100">
+                                    <div className="space-y-4 border-t border-gray-100 pt-6">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{COPY.form.sectionContact}</p>
                                         <div>
-                                            <label htmlFor="phone" className="block text-sm font-semibold text-gray-900 mb-1.5 sm:mb-2">
-                                                Mobile Number (India only) <span className="text-red-500">*</span>
+                                            <label htmlFor="phone" className="mb-1.5 block text-sm font-semibold text-gray-900">
+                                                Mobile number <span className="text-red-600">*</span>
                                             </label>
-                                            <p className="text-xs text-gray-500 mb-2">Indian registrations only. Enter 10-digit mobile number.</p>
-                                            <div className="flex rounded-xl border border-gray-200 bg-gray-50 overflow-hidden focus-within:ring-4 focus-within:ring-orange-500/10 focus-within:border-orange-500">
+                                            <p className="mb-2 text-xs text-gray-500">India: 10-digit number. We will send a one-time code.</p>
+                                            <div className="flex min-h-[48px] overflow-hidden rounded-xl border border-gray-300 bg-white focus-within:border-gray-900 focus-within:ring-2 focus-within:ring-gray-900/10 sm:min-h-0">
+                                                <span
+                                                    className="inline-flex shrink-0 select-none items-center border-r border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold tabular-nums text-gray-700"
+                                                    aria-hidden
+                                                >
+                                                    +91
+                                                </span>
                                                 <input
                                                     type="tel"
                                                     id="phone"
@@ -703,87 +625,83 @@ export default function RegisterPage() {
                                                     maxLength={14}
                                                     inputMode="numeric"
                                                     pattern="[0-9 ]*"
-                                                    className="flex-1 min-w-0 min-h-[48px] sm:min-h-0 px-4 py-3 bg-transparent font-medium text-base text-gray-900 outline-none placeholder:text-gray-400 disabled:opacity-60"
-                                                    placeholder="91 98765 43210"
+                                                    autoComplete="tel-national"
+                                                    className="min-h-[48px] w-full min-w-0 flex-1 border-0 bg-transparent px-3 py-3 text-base font-medium text-gray-900 outline-none placeholder:text-gray-400 disabled:opacity-60 sm:min-h-0 sm:px-4"
+                                                    placeholder="98765 43210"
                                                 />
                                             </div>
-                                            {otpStep === "verified" && (
-                                                <div className="px-4 py-3 bg-green-50 text-green-700 rounded-xl border border-green-200 font-bold flex items-center gap-2">
-                                                    <FaCheckCircle /> Verified
-                                                </div>
-                                            )}
+                                            {otpStep === "verified" ? (
+                                                <p className="mt-2 flex items-center gap-2 text-sm font-medium text-green-700">
+                                                    <FaCheckCircle className="shrink-0" aria-hidden />
+                                                    Mobile verified
+                                                </p>
+                                            ) : null}
                                         </div>
 
-                                        {otpStep === "otp" && (
-                                            <motion.div
-                                                initial={{ opacity: 0, height: 0 }}
-                                                animate={{ opacity: 1, height: "auto" }}
-                                                className="bg-white border border-gray-100 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-4 sm:space-y-6"
-                                            >
-                                                <div className="text-center">
-                                                    <h3 className="text-base sm:text-lg font-bold text-gray-900">Verify your number</h3>
-                                                    <p className="text-xs sm:text-sm text-gray-500 mt-1 break-all">Enter code sent to {formData.phone ? `+91 ${formData.phone.length === 10 ? `${formData.phone.slice(0, 5)} ${formData.phone.slice(5)}` : formData.phone}` : ''}</p>
-                                                </div>
-
-                                                <div className="flex justify-center">
+                                        {otpStep === "otp" ? (
+                                            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+                                                <h3 className="text-center text-base font-semibold text-gray-900">Verification code</h3>
+                                                <p className="mt-1 text-center text-xs text-gray-600 sm:text-sm">
+                                                    Sent to{" "}
+                                                    <span className="font-medium text-gray-900">
+                                                        {formData.phone && formData.phone.length === 10
+                                                            ? `+91 ${formData.phone.slice(0, 5)} ${formData.phone.slice(5)}`
+                                                            : formData.phone || "—"}
+                                                    </span>
+                                                </p>
+                                                <div className="mx-auto mt-4 max-w-sm">
                                                     <OTPInput
                                                         value={otpCode}
                                                         onChange={(value) => {
                                                             setOtpCode(value);
+                                                            setError(null);
                                                             clearOtpError();
                                                         }}
                                                         onComplete={(code) => {
                                                             setOtpCode(code);
                                                             if (code.length === 6) handleVerifyOTP(code);
                                                         }}
+                                                        error={otpError}
+                                                        onClearError={clearOtpError}
                                                     />
                                                 </div>
-
-                                                {otpError && (
-                                                    <div className="text-center">
-                                                        <p className="inline-flex items-center gap-1.5 text-red-600 bg-red-50 px-3 py-1.5 rounded-lg text-sm font-semibold border border-red-100 animate-pulse">
-                                                            <FaExclamationTriangle className="text-xs" />
-                                                            {otpError}
-                                                        </p>
-                                                    </div>
-                                                )}
-
-                                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-sm pt-2">
+                                                {otpError ? (
+                                                    <p className="mt-3 text-center text-sm font-medium text-red-600">{otpError}</p>
+                                                ) : null}
+                                                <div className="mt-4 flex flex-col items-center justify-center gap-3 border-t border-gray-100 pt-4 text-sm sm:flex-row sm:gap-8">
                                                     <button
                                                         type="button"
                                                         onClick={() => {
                                                             setOtpStep("phone");
                                                             resetOtp();
                                                         }}
-                                                        className="min-h-[44px] sm:min-h-0 px-3 py-2 text-gray-500 hover:text-gray-900 font-medium rounded-lg touch-manipulation"
+                                                        className="font-medium text-gray-600 transition hover:text-gray-900"
                                                     >
-                                                        Wrong Number?
+                                                        Change number
                                                     </button>
-
                                                     {countdown > 0 ? (
-                                                        <span className="text-gray-400 font-mono text-center">
-                                                            {Math.floor(countdown / 60)}:{(countdown % 60).toString().padStart(2, '0')}
+                                                        <span className="font-mono text-gray-400">
+                                                            Resend in {Math.floor(countdown / 60)}:{(countdown % 60).toString().padStart(2, "0")}
                                                         </span>
                                                     ) : (
                                                         <button
                                                             type="button"
                                                             onClick={handleResendOTP}
                                                             disabled={otpLoading}
-                                                            className="min-h-[44px] sm:min-h-0 px-3 py-2 text-orange-600 font-semibold hover:underline rounded-lg touch-manipulation disabled:opacity-50"
+                                                            className="font-semibold text-orange-600 hover:text-orange-700 disabled:opacity-50"
                                                         >
-                                                            Resend Code
+                                                            Resend code
                                                         </button>
                                                     )}
                                                 </div>
-
-                                            </motion.div>
-                                        )}
+                                            </div>
+                                        ) : null}
                                     </div>
 
-                                    {/* Additional Info Group */}
-                                    <div className="space-y-6 pt-4 border-t border-gray-100">
+                                    <div className="space-y-4 border-t border-gray-100 pt-6">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{COPY.form.sectionEducation}</p>
                                         <div>
-                                            <label htmlFor="address" className="block text-sm font-semibold text-gray-900 mb-2">
+                                            <label htmlFor="address" className="mb-1.5 block text-sm font-semibold text-gray-900">
                                                 Address
                                             </label>
                                             <textarea
@@ -791,13 +709,14 @@ export default function RegisterPage() {
                                                 name="address"
                                                 value={formData.address}
                                                 onChange={handleInputChange}
-                                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all font-medium text-base text-gray-900 min-h-[100px]"
-                                                placeholder="Enter your full address"
+                                                rows={3}
+                                                autoComplete="street-address"
+                                                className="block min-h-[100px] w-full resize-y rounded-xl border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+                                                placeholder="City, state — optional if not required by your program"
                                             />
                                         </div>
-
-                                        <div className="space-y-2">
-                                            <label htmlFor="qualification" className="block text-sm font-semibold text-gray-900">
+                                        <div>
+                                            <label htmlFor="qualification" className="mb-1.5 block text-sm font-semibold text-gray-900">
                                                 Qualification
                                             </label>
                                             <input
@@ -806,14 +725,13 @@ export default function RegisterPage() {
                                                 name="qualification"
                                                 value={formData.qualification}
                                                 onChange={handleInputChange}
-                                                className="w-full min-h-[48px] sm:min-h-0 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all font-medium text-base text-gray-900"
-                                                placeholder="Highest Qualification (e.g. B.Tech)"
+                                                className="block min-h-[48px] w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 sm:min-h-0"
+                                                placeholder="e.g. B.Tech, B.Sc., Diploma"
                                             />
                                         </div>
-
-                                        <div className="space-y-2">
-                                            <label htmlFor="college_name" className="block text-sm font-semibold text-gray-900">
-                                                College/University Name
+                                        <div>
+                                            <label htmlFor="college_name" className="mb-1.5 block text-sm font-semibold text-gray-900">
+                                                College / organization
                                             </label>
                                             <input
                                                 type="text"
@@ -821,14 +739,13 @@ export default function RegisterPage() {
                                                 name="college_name"
                                                 value={formData.college_name}
                                                 onChange={handleInputChange}
-                                                className="w-full min-h-[48px] sm:min-h-0 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all font-medium text-base text-gray-900"
-                                                placeholder="Enter your college name"
+                                                className="block min-h-[48px] w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 sm:min-h-0"
+                                                placeholder="Institution or employer"
                                             />
                                         </div>
-
-                                        <div className="space-y-2">
-                                            <label htmlFor="year_of_passing" className="block text-sm font-semibold text-gray-900">
-                                                Year of Passing
+                                        <div>
+                                            <label htmlFor="year_of_passing" className="mb-1.5 block text-sm font-semibold text-gray-900">
+                                                Year of completion
                                             </label>
                                             <input
                                                 type="number"
@@ -836,87 +753,50 @@ export default function RegisterPage() {
                                                 name="year_of_passing"
                                                 value={formData.year_of_passing}
                                                 onChange={handleInputChange}
-                                                min="1900"
-                                                max="2100"
-                                                className="w-full min-h-[48px] sm:min-h-0 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all font-medium text-base text-gray-900"
-                                                placeholder="2024"
+                                                min={1900}
+                                                max={2100}
+                                                className="block min-h-[48px] w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 sm:min-h-0"
+                                                placeholder="e.g. 2024"
                                             />
                                         </div>
                                     </div>
 
-                                    <div className="pt-6 sm:pt-8 mt-6 sm:mt-8 border-t border-gray-100">
+                                    <div className="border-t border-gray-100 pt-6">
                                         <button
                                             type="submit"
-                                            disabled={submitting || otpLoading || (otpStep === "otp" && !otpVerified && otpCode.length !== 6) || !formData.name.trim() || !formData.email.trim() || !isValidEmail(formData.email)}
-                                            className={`w-full min-h-[48px] sm:min-h-0 py-4 rounded-xl font-bold text-base sm:text-lg shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 touch-manipulation ${!submitting && !otpLoading
-                                                ? "bg-gradient-to-r from-orange-600 to-orange-500 text-white shadow-orange-500/25 hover:shadow-orange-500/40"
-                                                : "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
-                                                }`}
+                                            disabled={
+                                                submitting ||
+                                                otpLoading ||
+                                                (otpStep === "otp" && !otpVerified && otpCode.length !== 6) ||
+                                                !formData.name.trim() ||
+                                                !formData.email.trim() ||
+                                                !isValidEmail(formData.email)
+                                            }
+                                            className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-gray-900 px-6 py-3.5 text-sm font-semibold text-white shadow-md transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 sm:min-h-0 sm:text-base"
                                         >
                                             {submitting ? (
-                                                <span className="flex items-center justify-center gap-2">
-                                                    <FaSpinner className="animate-spin" /> Processing...
+                                                <span className="flex items-center gap-2">
+                                                    <FaSpinner className="animate-spin" aria-hidden />
+                                                    Submitting…
                                                 </span>
                                             ) : otpLoading ? (
-                                                "Please wait..."
+                                                "Please wait…"
+                                            ) : otpVerified ? (
+                                                "Complete registration"
+                                            ) : otpStep === "otp" ? (
+                                                "Verify and continue"
                                             ) : (
-                                                otpVerified ? "Register Now" : otpStep === "otp" ? "Verify & Register" : "Send OTP"
+                                                "Send verification code"
                                             )}
                                         </button>
+                                        <p className="mt-3 text-center text-[11px] leading-relaxed text-gray-500 sm:text-xs">{COPY.form.footerNote}</p>
                                     </div>
                                 </form>
-                            </>
+                            </div>
                         )}
                     </div>
                 )}
             </div>
-        </div>
-    );
-}
-
-// Helper component for OTP Input
-function OTPInput({ value, onChange, onComplete }) {
-    // ... existing OTP implementation ...
-    const handleChange = (e, index) => {
-        const val = e.target.value;
-        if (isNaN(val)) return;
-
-        const newOtp = value.split("");
-        newOtp[index] = val;
-        const newOtpStr = newOtp.join("");
-        onChange(newOtpStr);
-
-        if (val && index < 5) {
-            const nextInput = document.getElementById(`otp-${index + 1}`);
-            if (nextInput) nextInput.focus();
-        }
-
-        if (newOtpStr.length === 6) {
-            onComplete(newOtpStr);
-        }
-    };
-
-    const handleKeyDown = (e, index) => {
-        if (e.key === "Backspace" && !value[index] && index > 0) {
-            const prevInput = document.getElementById(`otp-${index - 1}`);
-            if (prevInput) prevInput.focus();
-        }
-    };
-
-    return (
-        <div className="flex gap-2 sm:gap-3">
-            {[0, 1, 2, 3, 4, 5].map((index) => (
-                <input
-                    key={index}
-                    id={`otp-${index}`}
-                    type="text"
-                    maxLength="1"
-                    value={value[index] || ""}
-                    onChange={(e) => handleChange(e, index)}
-                    onKeyDown={(e) => handleKeyDown(e, index)}
-                    className="w-10 h-12 sm:w-12 sm:h-14 border-2 border-gray-200 rounded-lg text-center text-xl font-bold focus:border-orange-600 focus:ring-4 focus:ring-orange-100 outline-none transition-all bg-white"
-                />
-            ))}
         </div>
     );
 }

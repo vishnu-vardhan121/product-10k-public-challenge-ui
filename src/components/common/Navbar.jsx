@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { FaBars, FaTimes } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import { getUtmQueryString, appendUtmToPath } from "@/utils/utmParams";
+import { MARKETING_SITE_URL } from "@/shared/config";
 
 const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -70,7 +71,7 @@ const Navbar = () => {
         <div className={`flex items-center justify-between transition-all duration-300 ${scrolled ? "h-16" : "h-20"
           }`}>
           {/* Logo - Left */}
-          <Link href="/" className="flex items-center space-x-3 group">
+          <Link href={MARKETING_SITE_URL} className="flex items-center space-x-3 group">
             <motion.div
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}

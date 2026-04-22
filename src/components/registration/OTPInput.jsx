@@ -85,8 +85,9 @@ const OTPInput = ({ value, onChange, onComplete, disabled = false, error = null,
   };
 
   return (
-    <div className="w-full">
-      <div className="flex justify-center gap-1.5 sm:gap-2 md:gap-3 mb-4 flex-wrap">
+    <div className="w-full min-w-0">
+      {/* Single row: flex-wrap broke the 6th cell onto a second line inside max-width cards on desktop */}
+      <div className="mb-4 grid w-full min-w-0 grid-cols-6 gap-1.5 sm:gap-2 md:gap-2.5">
         {otp.map((digit, index) => (
           <input
             key={index}
@@ -99,7 +100,7 @@ const OTPInput = ({ value, onChange, onComplete, disabled = false, error = null,
             onKeyDown={(e) => handleKeyDown(index, e)}
             onPaste={handlePaste}
             disabled={disabled}
-            className={`min-w-[40px] w-10 h-12 sm:w-12 sm:h-14 md:w-14 md:h-14 text-center text-lg sm:text-xl md:text-2xl font-bold border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-1 transition-all touch-manipulation ${
+            className={`h-11 w-full min-w-0 text-center text-base font-bold tabular-nums border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-1 transition-all touch-manipulation sm:h-12 sm:text-lg md:h-14 md:text-2xl ${
               error
                 ? "border-red-500 bg-red-50"
                 : digit
