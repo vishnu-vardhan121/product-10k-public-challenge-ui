@@ -187,15 +187,16 @@ export const restrictToIndianMobile = (value) => {
 };
 
 /**
- * Format 10-digit phone for input display: "91 xxxxx xxxxx"
+ * Format 10-digit Indian mobile for input display (digits only, no country code).
+ * Empty storage returns "" so placeholders show; use a separate "+91" label in the UI.
  * @param {string} digits - Up to 10 digits (stored value)
- * @returns {string} - Display string e.g. "91 98765 43210"
+ * @returns {string} - e.g. "", "9876", "98765 43210"
  */
 export const formatPhoneInputDisplay = (digits) => {
-  if (!digits) return '91 ';
+  if (!digits) return '';
   const d = String(digits).replace(/\D/g, '').slice(0, INDIAN_MOBILE_LENGTH);
-  if (d.length <= 5) return `91 ${d}`;
-  return `91 ${d.slice(0, 5)} ${d.slice(5)}`;
+  if (d.length <= 5) return d;
+  return `${d.slice(0, 5)} ${d.slice(5)}`;
 };
 
 /**
