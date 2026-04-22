@@ -1,4 +1,6 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* Hide scrollbar while keeping scroll (Chrome, Safari, Edge, Firefox) – no side scrollbar, no scroll thumb/icon */
 html {

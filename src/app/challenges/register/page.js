@@ -517,7 +517,7 @@ export default function RegisterPage() {
                                 </div>
                                 <div
                                     role="note"
-                                    className="mb-8 flex w-full max-w-md gap-3 rounded-xl border-2 border-amber-400 bg-linear-to-br from-amber-50 to-amber-100/80 p-4 text-left shadow-md ring-1 ring-amber-500/20 sm:p-4"
+                                    className="mb-8 flex w-full max-w-md gap-3 rounded-xl border-2 border-amber-400 bg-gradient-to-br from-amber-50 to-amber-100/80 p-4 text-left shadow-md ring-1 ring-amber-500/20 sm:p-4"
                                 >
                                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white shadow-sm">
                                         <FaLaptop className="h-5 w-5" aria-hidden />

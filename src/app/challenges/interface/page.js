@@ -700,7 +700,7 @@ export default function ChallengeInterfacePage() {
             alt=""
             className="h-full w-full object-cover"
           />
-          <div className="absolute inset-0 bg-linear-to-b from-gray-900/50 via-gray-900/35 to-gray-900/50"></div>
+          <div className="absolute inset-0 bg-gradient-to-b from-gray-900/50 via-gray-900/35 to-gray-900/50"></div>
         </div>
 
         <div className="pointer-events-none absolute top-0 right-0 -mt-16 -mr-16 hidden h-52 w-52 rounded-full bg-orange-100/80 blur-3xl sm:-mt-20 sm:-mr-20 sm:h-64 sm:w-64 lg:block"></div>
@@ -730,7 +730,7 @@ export default function ChallengeInterfacePage() {
               <div className="flex min-h-0 flex-1 flex-col justify-center py-6 text-center sm:py-8">
                 <div
                   role="note"
-                  className="mx-auto mb-5 flex w-full max-w-sm gap-3 rounded-xl border-2 border-amber-400 bg-linear-to-br from-amber-50 to-amber-100/80 p-3.5 text-left shadow-md ring-1 ring-amber-500/20 sm:mb-6 sm:p-4 lg:hidden"
+                  className="mx-auto mb-5 flex w-full max-w-sm gap-3 rounded-xl border-2 border-amber-400 bg-gradient-to-br from-amber-50 to-amber-100/80 p-3.5 text-left shadow-md ring-1 ring-amber-500/20 sm:mb-6 sm:p-4 lg:hidden"
                 >
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white shadow-sm sm:h-11 sm:w-11">
                     <FaLaptop className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden />
@@ -788,7 +788,7 @@ export default function ChallengeInterfacePage() {
 
                 <div
                   role="note"
-                  className="mx-auto mb-4 flex w-full max-w-sm shrink-0 gap-3 rounded-xl border-2 border-amber-400 bg-linear-to-br from-amber-50 to-amber-100/80 p-3.5 text-left shadow-md ring-1 ring-amber-500/20 sm:mb-5 sm:max-w-none sm:p-4 lg:hidden"
+                  className="mx-auto mb-4 flex w-full max-w-sm shrink-0 gap-3 rounded-xl border-2 border-amber-400 bg-gradient-to-br from-amber-50 to-amber-100/80 p-3.5 text-left shadow-md ring-1 ring-amber-500/20 sm:mb-5 sm:max-w-none sm:p-4 lg:hidden"
                 >
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white shadow-sm sm:h-11 sm:w-11">
                     <FaLaptop className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden />
