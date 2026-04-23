@@ -19,6 +19,7 @@ import {
   FaPhone,
   FaLock,
   FaLaptop,
+  FaWhatsapp,
 } from "react-icons/fa";
 import { formatPhoneNumber, formatPhoneInputDisplay, parsePhoneInputValue, validateIndianPhoneNumber } from "@/services/phoneUtils";
 import ChallengeInterface from "@/components/challenge/ChallengeInterface";
@@ -32,6 +33,7 @@ import {
 import { getUtmQueryString, appendUtmToPath } from "@/utils/utmParams";
 import "@/styles/resizable-panels.css";
 import { CHALLENGE_ENTRY_COPY as ENTRY } from "./challengeEntryCopy";
+import { WHATSAPP_CHALLENGE_GROUP_URL } from "@/shared/config";
 
 /** Format remaining ms as "Xd Xh Xm Xs" or "Xh Xm Xs" / "Xm Xs" / "Xs". */
 function formatCountdown(ms) {
@@ -747,7 +749,27 @@ export default function ChallengeInterfacePage() {
                 <p className="text-2xl sm:text-3xl font-mono font-bold text-orange-600 mb-3 sm:mb-4 tabular-nums">
                   {formatCountdown(Math.max(0, startAtMs - now))}
                 </p>
-                <p className="text-gray-500 text-sm">{ENTRY.countdown.helper}</p>
+                <p className="text-gray-500 text-sm mb-5 sm:mb-6">{ENTRY.countdown.helper}</p>
+                <div
+                  role="note"
+                  className="mx-auto flex w-full max-w-sm gap-3 rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-green-50/90 p-3.5 text-left shadow-sm ring-1 ring-emerald-500/15 sm:p-4"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#25D366] text-white shadow-sm sm:h-11 sm:w-11">
+                    <FaWhatsapp className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-emerald-950 sm:text-base">{ENTRY.countdown.whatsappTitle}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-emerald-900/95 sm:text-sm">{ENTRY.countdown.whatsappBody}</p>
+                    <a
+                      href={WHATSAPP_CHALLENGE_GROUP_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2.5 inline-flex min-h-9 items-center justify-center rounded-lg bg-[#25D366] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#20bd5a] sm:mt-3 sm:min-h-10 sm:px-4 sm:text-sm"
+                    >
+                      {ENTRY.countdown.whatsappCta}
+                    </a>
+                  </div>
+                </div>
               </div>
             ) : (
               <div

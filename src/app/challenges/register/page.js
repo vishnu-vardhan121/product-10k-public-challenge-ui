@@ -13,12 +13,12 @@ import {
     clearError,
 } from "@/redux/features/publicChallenge/publicChallengeSlice";
 import { usePhoneOTP } from "@/hooks/usePhoneOTP";
-import { getDisplayParticipantCount, MARKETING_SITE_URL } from "@/shared/config";
+import { getDisplayParticipantCount, MARKETING_SITE_URL, WHATSAPP_CHALLENGE_GROUP_URL } from "@/shared/config";
 import BatchStudentShareModal from "@/components/shared/BatchStudentShareModal";
 import OTPInput from "@/components/registration/OTPInput";
 import { REGISTER_PAGE_COPY as COPY } from "./registerCopy";
 
-import { FaSpinner, FaCheckCircle, FaExclamationTriangle, FaUsers, FaLaptop } from "react-icons/fa";
+import { FaSpinner, FaCheckCircle, FaExclamationTriangle, FaUsers, FaLaptop, FaWhatsapp } from "react-icons/fa";
 import { formatPhoneNumber, formatPhoneInputDisplay, parsePhoneInputValue, validateIndianPhoneNumber } from "@/services/phoneUtils";
 
 /** Turn slug-style API titles into readable headings (e.g. scholarship → Scholarship). */
@@ -529,6 +529,30 @@ export default function RegisterPage() {
                                         <p className="mt-1.5 text-xs leading-relaxed text-amber-900/95 sm:text-sm">
                                             {COPY.success.laptopBody}
                                         </p>
+                                    </div>
+                                </div>
+                                <div
+                                    role="note"
+                                    className="mb-8 flex w-full max-w-md gap-3 rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-green-50/90 p-4 text-left shadow-sm ring-1 ring-emerald-500/15 sm:p-4"
+                                >
+                                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#25D366] text-white shadow-sm">
+                                        <FaWhatsapp className="h-6 w-6" aria-hidden />
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-bold tracking-tight text-emerald-950 sm:text-base">
+                                            {COPY.success.whatsappTitle}
+                                        </p>
+                                        <p className="mt-1.5 text-xs leading-relaxed text-emerald-900/95 sm:text-sm">
+                                            {COPY.success.whatsappBody}
+                                        </p>
+                                        <a
+                                            href={WHATSAPP_CHALLENGE_GROUP_URL}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="mt-3 inline-flex min-h-10 items-center justify-center rounded-lg bg-[#25D366] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#20bd5a]"
+                                        >
+                                            {COPY.success.whatsappCta}
+                                        </a>
                                     </div>
                                 </div>
                                 {accessCodeValue ? (
