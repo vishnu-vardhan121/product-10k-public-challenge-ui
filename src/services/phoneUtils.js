@@ -200,13 +200,19 @@ export const formatPhoneInputDisplay = (digits) => {
 };
 
 /**
- * Parse input value (e.g. "91 98765 43210") to stored 10 digits only.
+ * Parse input value to stored 10 national digits (Indian mobile).
+ * Strips a leading **country code** `91` only when the string looks like `91` + 10 digits
+ * (12+ digits), e.g. pasted `919876543210`. If the user types a number that **starts with 91**
+ * as the first two digits of the 10-digit mobile (e.g. `9100612345`), we must **not** strip—
+ * that was incorrectly done when we stripped `91` for any input.
  * @param {string} value - Raw input value from the field
- * @returns {string} - At most 10 digits (without 91)
+ * @returns {string} - At most 10 digits
  */
 export const parsePhoneInputValue = (value) => {
   let digits = String(value || '').replace(/\D/g, '');
-  if (digits.startsWith('91')) digits = digits.slice(2);
+  if (digits.length >= 12 && digits.startsWith('91')) {
+    digits = digits.slice(2);
+  }
   return digits.slice(0, INDIAN_MOBILE_LENGTH);
 };
 

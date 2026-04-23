@@ -6,6 +6,15 @@ const APP_VERSION = "1.0.0"; // Update this with each new build
 /** Main institute / marketing site — “home” exits from this app should land here */
 export const MARKETING_SITE_URL = "https://www.10000coders.in/";
 
+/** Official challenge WhatsApp community (invite link). Override with NEXT_PUBLIC_WHATSAPP_CHALLENGE_GROUP_URL. */
+const _DEFAULT_WHATSAPP_CHALLENGE_GROUP =
+  "https://chat.whatsapp.com/KF5G8Jeq1jDHaJKzwGbEEl?mode=gi_t";
+export const WHATSAPP_CHALLENGE_GROUP_URL =
+  (typeof process !== "undefined" &&
+    process.env.NEXT_PUBLIC_WHATSAPP_CHALLENGE_GROUP_URL &&
+    String(process.env.NEXT_PUBLIC_WHATSAPP_CHALLENGE_GROUP_URL).trim()) ||
+  _DEFAULT_WHATSAPP_CHALLENGE_GROUP;
+
 /** Extra count added to real registration count for social proof / trust (e.g. "100+ already enrolled") */
 export const PARTICIPANTS_TRUST_OFFSET = 100;
 

@@ -69,6 +69,10 @@ export const CHALLENGE_ENTRY_COPY = {
   countdown: {
     title: "Challenge starts in",
     helper: "Stay on this page. You will enter automatically when the session opens.",
+    whatsappTitle: "Join the WhatsApp group",
+    whatsappBody:
+      "Get last-minute updates and reminders while you wait. Open the invite in WhatsApp (install the app if needed).",
+    whatsappCta: "Join WhatsApp group",
   },
 
   loading: {
