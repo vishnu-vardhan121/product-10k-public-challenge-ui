@@ -25,6 +25,10 @@ export const REGISTER_PAGE_COPY = {
     laptopTitle: "Use a laptop for the challenge",
     laptopBody:
       "For coding, navigation, and a stable session, join from a laptop or desktop. Phones and small tablets are not recommended for this challenge.",
+    whatsappTitle: "Join the WhatsApp group",
+    whatsappBody:
+      "Get updates, reminders, and community support for this challenge. Tap below to open the invite in WhatsApp.",
+    whatsappCta: "Join WhatsApp group",
     cta: "Back to home",
   },
   challengeNotFound: {
