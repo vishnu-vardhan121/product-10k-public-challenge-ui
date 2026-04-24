@@ -40,6 +40,13 @@ const errorToDisplayString = (value) => {
   return String(value);
 };
 
+/** Backend may send AC / Accepted / mixed case. */
+const verdictIsAccepted = (verdict) => {
+  if (verdict == null || verdict === "") return false;
+  const s = String(verdict).trim().toUpperCase();
+  return s === "AC" || s === "ACCEPTED";
+};
+
 const formatErrorMessage = (error) => {
   const str = errorToDisplayString(error);
   if (!str) return 'Unknown error';
@@ -88,7 +95,7 @@ const TestResults = ({
   const remainingCount = Math.max(0, totalTests - testsExecuted);
 
   const allPassed = isSubmission
-    ? submissionData.verdict === 'AC'
+    ? verdictIsAccepted(submissionData.verdict ?? executionResult.verdict)
     : (testsExecuted > 0 && passedCount === testsExecuted);
 
   const hasReferenceTests = Array.isArray(referenceTestCases) && referenceTestCases.length > 0;
@@ -326,14 +333,14 @@ const TestResults = ({
                 {/* Submission Result Display */}
                 {isSubmission && submissionData && (
                   <div className="space-y-4">
-                    <div className={`rounded-lg p-4 sm:p-6 text-center border ${submissionData.verdict === 'AC'
+                    <div className={`rounded-lg p-4 sm:p-6 text-center border ${verdictIsAccepted(submissionData.verdict ?? executionResult.verdict)
                       ? 'bg-green-50 border-green-200'
                       : 'bg-red-50 border-red-200'
                       }`}>
 
                       {/* Verdict Icon */}
                       <div className="mb-3">
-                        {submissionData.verdict === 'AC' ? (
+                        {verdictIsAccepted(submissionData.verdict ?? executionResult.verdict) ? (
                           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mb-2">
                             <svg className="w-8 h-8 text-green-600" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -348,9 +355,9 @@ const TestResults = ({
                         )}
                       </div>
 
-                      <h3 className={`text-xl font-bold mb-1 ${submissionData.verdict === 'AC' ? 'text-green-800' : 'text-red-800'
+                      <h3 className={`text-xl font-bold mb-1 ${verdictIsAccepted(submissionData.verdict ?? executionResult.verdict) ? 'text-green-800' : 'text-red-800'
                         }`}>
-                        {submissionData.verdict === 'AC' ? 'Accepted' :
+                        {verdictIsAccepted(submissionData.verdict ?? executionResult.verdict) ? 'Accepted' :
                           submissionData.verdict === 'WA' ? 'Wrong Answer' :
                             submissionData.verdict === 'TLE' ? 'Time Limit Exceeded' :
                               submissionData.verdict === 'MLE' ? 'Memory Limit Exceeded' :
@@ -358,10 +365,10 @@ const TestResults = ({
                                   submissionData.verdict === 'CE' ? 'Compilation Error' : 'Rejected'}
                       </h3>
 
-                      <p className={`text-sm mb-4 ${submissionData.verdict === 'AC' ? 'text-green-700' : 'text-red-700'
+                      <p className={`text-sm mb-4 ${verdictIsAccepted(submissionData.verdict ?? executionResult.verdict) ? 'text-green-700' : 'text-red-700'
                         }`}>
-                        {submissionData.verdict === 'AC'
-                          ? 'You have successfully solved this problem!'
+                        {verdictIsAccepted(submissionData.verdict ?? executionResult.verdict)
+                          ? 'All hidden test cases passed — this problem is complete.'
                           : 'One or more test cases failed. Please try again.'}
                       </p>
 

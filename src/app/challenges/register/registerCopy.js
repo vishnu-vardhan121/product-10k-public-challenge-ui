@@ -36,4 +36,9 @@ export const REGISTER_PAGE_COPY = {
     titleMissing: "Challenge not found",
     cta: "Go to home",
   },
+  /** Shown when API returns that the challenge window is over (e.g. slug detail 400). */
+  challengeEnded: {
+    title: "Challenge ended",
+    subtitle: "This challenge is no longer open for registration.",
+  },
 };
