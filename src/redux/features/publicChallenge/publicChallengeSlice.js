@@ -77,7 +77,10 @@ export const fetchChallengeDetails = createAsyncThunk(
       const response = await getChallengeDetails(challengeId);
       return response;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || "Failed to fetch challenge details");
+      const data = error.response?.data;
+      return rejectWithValue(
+        data?.message || data?.detail || "Failed to fetch challenge details"
+      );
     }
   }
 );
@@ -89,7 +92,10 @@ export const fetchChallengeBySlug = createAsyncThunk(
       const response = await getChallengeBySlug(slug);
       return response;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch challenge details');
+      const data = error.response?.data;
+      return rejectWithValue(
+        data?.message || data?.detail || "Failed to fetch challenge details"
+      );
     }
   }
 );
@@ -457,21 +463,33 @@ const publicChallengeSlice = createSlice({
           state.problemSubmissions[problemId].result = payloadData || response;
 
           const submission = payloadData?.submission;
-          const verdict = submission?.verdict || payloadData?.execution_result?.verdict;
-          if (verdict === 'AC') {
-            const idx = state.codingProblems.findIndex((p) => p.id === problemId);
-            if (idx !== -1) {
-              state.codingProblems[idx].is_solved = true;
-              // Store the latest solved submission so UI can load solved code read-only
-              state.codingProblems[idx].user_submission = {
-                id: submission?.id,
-                problem_id: submission?.problem,
-                language: submission?.language,
-                source_code: submission?.source_code,
-                verdict: submission?.verdict,
-                submitted_at: submission?.submitted_at,
-                finished_at: submission?.finished_at,
-              };
+          const rawVerdict = submission?.verdict ?? payloadData?.execution_result?.verdict;
+          const verdictNorm =
+            rawVerdict != null && String(rawVerdict).trim() !== ""
+              ? String(rawVerdict).trim().toUpperCase()
+              : "";
+          const accepted = verdictNorm === "AC" || verdictNorm === "ACCEPTED";
+          if (accepted) {
+            const submissionPatch = {
+              id: submission?.id,
+              problem_id: submission?.problem,
+              language: submission?.language,
+              source_code: submission?.source_code,
+              verdict: submission?.verdict,
+              submitted_at: submission?.submitted_at,
+              finished_at: submission?.finished_at,
+            };
+            const markSolved = (list) => {
+              if (!Array.isArray(list)) return;
+              const idx = list.findIndex((p) => String(p.id) === String(problemId));
+              if (idx === -1) return;
+              list[idx].is_solved = true;
+              list[idx].user_submission = submissionPatch;
+            };
+            markSolved(state.codingProblems);
+            // Challenge details embed problems before fetch fills codingProblems — keep in sync.
+            if (state.currentChallenge?.problems) {
+              markSolved(state.currentChallenge.problems);
             }
           }
         }

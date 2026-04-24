@@ -14,9 +14,32 @@ import {
 } from "react-icons/fa";
 import { generateCodeTemplate, getSupportedLanguages } from "@/utils/codeTemplates";
 import { debounce } from "@/utils/debounce";
+import { toast } from "react-toastify";
 import { getStoredLayout, storeLayout } from "@/utils/panelLayoutStorage";
 
 const normalizeDraftText = (value = "") => String(value).replace(/\r\n/g, "\n").trim();
+
+/**
+ * All executed sample tests passed (same idea as TestResults for a sample run).
+ * When the problem has no reference sample cases, any successful run payload counts as the pre-check.
+ */
+function isSampleRunAllTestsPassed(sampleRunResult, referenceCaseCount) {
+  if (!sampleRunResult?.status || !sampleRunResult?.data) return false;
+  const data = sampleRunResult.data;
+  const tests = data.tests || [];
+  if (referenceCaseCount === 0) {
+    if (tests.length === 0) return true;
+    return tests.every((t) => t.status === "AC");
+  }
+  const summary = data.summary || {};
+  const testsExecuted = summary.tests_executed ?? summary.total_tests ?? tests.length ?? 0;
+  const passedCount =
+    summary.passed ??
+    summary.passed_tests ??
+    (tests.length ? tests.filter((t) => t.status === "AC").length : 0);
+  if (tests.length > 0) return tests.every((t) => t.status === "AC");
+  return testsExecuted > 0 && passedCount === testsExecuted;
+}
 
 const InlineButtonSpinner = ({ className = '' }) => (
   <svg
@@ -81,6 +104,8 @@ export default function CodingProblemsTab({
   const [isEditMode, setIsEditMode] = useState(false);
   /** Increment when run/submit starts or result arrives so mobile results panel opens reliably */
   const [openResultsTrigger, setOpenResultsTrigger] = useState(0);
+  /** Fingerprint of code/problem/lang after a fully passing sample run — required before Submit. */
+  const [submitRunGateFingerprint, setSubmitRunGateFingerprint] = useState(null);
 
   const lastDraftFetchKeyRef = useRef(null);
   const lastSavedByKeyRef = useRef({});
@@ -222,6 +247,16 @@ export default function CodingProblemsTab({
     return [];
   }, [selectedProblem]);
 
+  const submitGateFingerprint = useMemo(() => {
+    if (!selectedProblemId || !selectedLanguage) return "";
+    return `${selectedProblemId}:${selectedLanguage}:${normalizeDraftText(code)}`;
+  }, [selectedProblemId, selectedLanguage, code]);
+
+  const sampleRunPassedForCurrentCode =
+    Boolean(submitGateFingerprint) &&
+    submitRunGateFingerprint != null &&
+    submitRunGateFingerprint === submitGateFingerprint;
+
   // Load saved layouts on mount
   useEffect(() => {
     const storedHorizontal = getStoredLayout(`coding-problems-horizontal-${challengeId}`);
@@ -346,6 +381,7 @@ export default function CodingProblemsTab({
     if (isSolvedReadOnly) {
       return;
     }
+    setSubmitRunGateFingerprint(null);
     setCode(newCode);
     if (selectedProblemId && selectedLanguage) {
       scheduleSaveDraft(newCode, selectedProblemId, selectedLanguage);
@@ -360,6 +396,7 @@ export default function CodingProblemsTab({
       await flushPendingSave();
       await doSaveDraft(code, selectedProblemId, selectedLanguage);
       setIsLoadingCode(true);
+      setSubmitRunGateFingerprint(null);
       setCode('');
       setSelectedLanguage(newLanguage);
     },
@@ -379,6 +416,7 @@ export default function CodingProblemsTab({
 
       onSelectProblem(problem.id);
       setIsEditMode(false);
+      setSubmitRunGateFingerprint(null);
       setSampleRunResult(null);
       setSubmissionResult(null);
       setSampleRunError(null);
@@ -406,6 +444,7 @@ export default function CodingProblemsTab({
 
     setSampleRunLoading(true);
     setSampleRunError(null);
+    setSubmitRunGateFingerprint(null);
     setSampleRunResult(null);
     setSubmissionResult(null);
     setError(null);
@@ -428,26 +467,33 @@ export default function CodingProblemsTab({
         // TestResults expects: { status: true, data: { tests, summary } }
         const runnerResult = result.data;
         if (runnerResult?.status && runnerResult?.data) {
-          setSampleRunResult({
-            status: runnerResult.status !== false,
-            data: runnerResult.data
-          });
+          const wrapped = { status: runnerResult.status !== false, data: runnerResult.data };
+          setSampleRunResult(wrapped);
+          const fp = `${selectedProblemId}:${selectedLanguage}:${normalizeDraftText(code)}`;
+          if (isSampleRunAllTestsPassed(wrapped, referenceTestCases.length)) {
+            setSubmitRunGateFingerprint(fp);
+          } else {
+            setSubmitRunGateFingerprint(null);
+          }
           setOpenResultsTrigger((t) => t + 1);
         } else {
+          setSubmitRunGateFingerprint(null);
           setSampleRunError(runnerResult?.message || "Sample run failed");
           setOpenResultsTrigger((t) => t + 1);
         }
       } else {
+        setSubmitRunGateFingerprint(null);
         setSampleRunError(result.message || "Sample run failed");
         setOpenResultsTrigger((t) => t + 1);
       }
     } catch (err) {
+      setSubmitRunGateFingerprint(null);
       setSampleRunError(typeof err === 'string' ? err : (err?.message || "Failed to run code. Please try again."));
       setOpenResultsTrigger((t) => t + 1);
     } finally {
       setSampleRunLoading(false);
     }
-  }, [selectedProblem, selectedProblemId, code, selectedLanguage, userId, registrationId, challengeId, dispatch, isSolvedReadOnly]);
+  }, [selectedProblem, selectedProblemId, code, selectedLanguage, userId, registrationId, challengeId, dispatch, isSolvedReadOnly, referenceTestCases.length]);
 
   const handleSubmit = async () => {
     if (isSolvedReadOnly) {
@@ -457,10 +503,17 @@ export default function CodingProblemsTab({
       setError("Please write some code before submitting.");
       return;
     }
+    if (!sampleRunPassedForCurrentCode) {
+      const msg =
+        "Run all sample tests successfully (Run) before submitting. That keeps unnecessary load off the judging server.";
+      setError(msg);
+      toast.warning(msg, { position: "top-center", autoClose: 9000 });
+      setOpenResultsTrigger((t) => t + 1);
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
-    setSampleRunResult(null);
     setSubmissionResult(null);
     setOpenResultsTrigger((t) => t + 1);
 
@@ -482,8 +535,14 @@ export default function CodingProblemsTab({
         setOpenResultsTrigger((t) => t + 1);
         setSubmitted(true);
         // If AC, exit edit mode (lock again on solved)
-        if (result.data?.execution_result?.verdict === 'AC' || result.data?.submission?.verdict === 'AC') {
+        const submitVerdict =
+          result.data?.submission?.verdict ?? result.data?.execution_result?.verdict;
+        const submitAc =
+          submitVerdict != null &&
+          ["AC", "ACCEPTED"].includes(String(submitVerdict).trim().toUpperCase());
+        if (submitAc) {
           setIsEditMode(false);
+          toast.success("All test cases passed.", { position: "top-center", autoClose: 7800 });
         }
         // Reset after 3 seconds
         setTimeout(() => {
@@ -503,6 +562,7 @@ export default function CodingProblemsTab({
 
   const handleClearSampleRun = useCallback(() => {
     setSampleRunResult(null);
+    setSubmitRunGateFingerprint(null);
     setSubmissionResult(null);
     setSampleRunError(null);
   }, []);
@@ -725,7 +785,10 @@ export default function CodingProblemsTab({
             {Boolean(selectedProblem?.is_solved && solvedSubmission) && isSolvedReadOnly && (
               <button
                 type="button"
-                onClick={() => setIsEditMode(true)}
+                onClick={() => {
+                  setSubmitRunGateFingerprint(null);
+                  setIsEditMode(true);
+                }}
                 className="shrink-0 min-h-[40px] sm:min-h-0 inline-flex items-center justify-center px-2.5 sm:px-4 py-2 sm:py-1.5 text-xs sm:text-sm font-medium text-white bg-gray-600 hover:bg-gray-500 rounded transition-colors"
                 title="Edit solved submission"
               >
@@ -742,9 +805,20 @@ export default function CodingProblemsTab({
             </button>
             <button
               onClick={handleSubmit}
-              disabled={isSolvedReadOnly || submitting || sampleRunLoading || !code.trim() || !selectedProblem}
+              disabled={
+                isSolvedReadOnly ||
+                submitting ||
+                sampleRunLoading ||
+                !code.trim() ||
+                !selectedProblem ||
+                !sampleRunPassedForCurrentCode
+              }
               className="shrink-0 min-h-[40px] sm:min-h-0 min-w-[76px] sm:min-w-[96px] inline-flex items-center justify-center px-2.5 sm:px-4 py-2 sm:py-1.5 text-xs sm:text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:bg-red-600/50 disabled:cursor-not-allowed rounded transition-colors"
-              title="Submit solution for evaluation"
+              title={
+                !sampleRunPassedForCurrentCode && !isSolvedReadOnly
+                  ? "Run all sample tests successfully first, then submit"
+                  : "Submit solution for evaluation"
+              }
             >
               <ButtonContent loading={submitting} label="Submit" />
             </button>
