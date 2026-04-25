@@ -14,6 +14,18 @@ import {
   registerForChallenge,
 } from '@/services/publicChallengeApi';
 
+/** Persists across Coding ↔ MCQ tab unmount (see CodingProblemsTab). */
+function createInitialCodingWorkspace(challengeId = null) {
+  return {
+    challengeId,
+    selectedLanguage: 'javascript',
+    sampleRunResult: null,
+    sampleRunError: null,
+    submissionResult: null,
+    submitRunGateFingerprint: null,
+    tabError: null,
+  };
+}
 
 const initialState = {
   challenges: [],
@@ -36,6 +48,7 @@ const initialState = {
   error: null,
   mcqAnswers: {}, // { questionId: { selected_option_id?, text_answer? } }
   problemSubmissions: {}, // { problemId: { language, source_code, result } }
+  codingWorkspace: createInitialCodingWorkspace(),
 };
 
 // Async Thunks
@@ -275,6 +288,18 @@ const publicChallengeSlice = createSlice({
       state.problemSubmissions[problemId].language = language;
       state.problemSubmissions[problemId].source_code = sourceCode;
     },
+    /** Merge into coding tab workspace; pass `challengeId` when it changes to reset session-scoped fields. */
+    updateCodingWorkspace: (state, action) => {
+      const payload = action.payload || {};
+      const cid = payload.challengeId;
+      if (cid != null && state.codingWorkspace.challengeId !== cid) {
+        state.codingWorkspace = createInitialCodingWorkspace(cid);
+      }
+      const { challengeId: _omit, ...rest } = payload;
+      if (Object.keys(rest).length > 0) {
+        Object.assign(state.codingWorkspace, rest);
+      }
+    },
     clearError: (state) => {
       state.error = null;
     },
@@ -284,6 +309,7 @@ const publicChallengeSlice = createSlice({
       state.codingProblems = [];
       state.mcqAnswers = {};
       state.problemSubmissions = {};
+      state.codingWorkspace = createInitialCodingWorkspace();
       state.error = null;
     },
   },
@@ -557,6 +583,7 @@ export const {
   setRegistrationId,
   updateMCQAnswer,
   updateProblemCode,
+  updateCodingWorkspace,
   clearError,
   resetChallengeState,
 } = publicChallengeSlice.actions;

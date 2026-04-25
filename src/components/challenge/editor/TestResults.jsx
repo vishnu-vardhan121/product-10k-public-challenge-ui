@@ -59,6 +59,115 @@ const formatErrorMessage = (error) => {
   return formatted.trim() || str;
 };
 
+function formatSubmissionValue(value) {
+  if (value === undefined || value === null || value === "") return "—";
+  if (typeof value === "object") {
+    try {
+      return formatJSON(JSON.stringify(value));
+    } catch {
+      return String(value);
+    }
+  }
+  if (typeof value === "string") {
+    try {
+      return formatJSON(value);
+    } catch {
+      return value;
+    }
+  }
+  return String(value);
+}
+
+function submissionCaseStatusLabel(fc) {
+  if (fc.reason && String(fc.reason).trim()) return String(fc.reason).trim();
+  const s = String(fc.status || '').toUpperCase();
+  if (s === 'WA') return 'Wrong Answer';
+  if (s === 'TLE') return 'Time Limit Exceeded';
+  if (s === 'MLE') return 'Memory Limit Exceeded';
+  if (s === 'RE') return 'Runtime Error';
+  if (s === 'CE') return 'Compilation Error';
+  return fc.status ? String(fc.status) : 'Failed';
+}
+
+/** Per-case detail from sync_runner / public submit — matches test-center submission card (rose panel, INPUT, Expected vs Your output). */
+function SubmissionFailedCasesList({ failedCases }) {
+  if (!Array.isArray(failedCases) || failedCases.length === 0) return null;
+
+  return (
+    <div className="rounded-lg border border-red-200/90 bg-rose-50/95 p-3 text-left shadow-sm sm:p-4">
+      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-red-900">What failed</p>
+      <div className="space-y-3">
+        {failedCases.map((fc, index) => (
+          <div
+            key={`${fc.group}-${fc.seq_no}-${index}`}
+            className="rounded-lg border border-red-200 bg-white p-3 sm:p-4"
+          >
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-red-100 pb-2">
+              <span className="rounded-md bg-red-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-red-900">
+                {String(fc.group || 'case').toUpperCase()} #{fc.seq_no ?? index + 1}
+              </span>
+              <span className="text-sm font-medium text-red-600">{submissionCaseStatusLabel(fc)}</span>
+            </div>
+
+            {fc.inputs_json && typeof fc.inputs_json === 'object' && !Array.isArray(fc.inputs_json) ? (
+              <div className="mb-3">
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">Input</p>
+                <div className="space-y-1 rounded-md border border-gray-200 bg-gray-50 p-2.5">
+                  {Object.entries(fc.inputs_json).map(([key, value]) => (
+                    <div key={key} className="flex items-start gap-2 text-xs">
+                      <span className="shrink-0 font-mono font-semibold text-gray-700">{key} =</span>
+                      <pre className="min-w-0 flex-1 whitespace-pre-wrap break-words font-mono text-gray-900">
+                        {formatSubmissionValue(value)}
+                      </pre>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : fc.input_text || fc.input_preview ? (
+              <div className="mb-3">
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">Input</p>
+                <pre className="rounded-md border border-gray-200 bg-gray-50 p-2.5 text-xs font-mono text-gray-900 whitespace-pre-wrap break-words">
+                  {fc.input_text || fc.input_preview}
+                </pre>
+              </div>
+            ) : null}
+
+            {fc.status === 'WA' ? (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+                <div>
+                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-600">Expected</p>
+                  <pre className="max-h-48 min-h-[2.5rem] overflow-y-auto rounded-md border border-gray-200 bg-white p-2.5 text-xs font-mono text-gray-900 whitespace-pre-wrap break-words sm:max-h-52">
+                    {formatSubmissionValue(fc.expected_preview ?? fc.expected_output)}
+                  </pre>
+                </div>
+                <div>
+                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-600">Your output</p>
+                  <pre className="max-h-48 min-h-[2.5rem] overflow-y-auto rounded-md border border-red-300 bg-red-50 p-2.5 text-xs font-mono text-red-900 whitespace-pre-wrap break-words sm:max-h-52">
+                    {formatSubmissionValue(fc.actual_preview ?? fc.actual_output)}
+                  </pre>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-md border border-red-200 bg-red-50/80 p-2.5">
+                <pre className="text-xs font-mono text-red-800 whitespace-pre-wrap break-words">
+                  {formatErrorMessage(fc.error_message || fc.stderr || 'No further detail')}
+                </pre>
+              </div>
+            )}
+
+            {fc.user_logs?.trim() ? (
+              <div className="mt-3 rounded-md border border-blue-200 bg-blue-50/90 p-2.5">
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-blue-900">Console output</p>
+                <pre className="text-xs font-mono text-blue-900 whitespace-pre-wrap break-words">{fc.user_logs.trim()}</pre>
+              </div>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const TestResults = ({
   sampleRunResult,
   submissionResult,
@@ -330,98 +439,147 @@ const TestResults = ({
                   </div>
                 )}
 
-                {/* Submission Result Display */}
-                {isSubmission && submissionData && (
-                  <div className="space-y-4">
-                    <div className={`rounded-lg p-4 sm:p-6 text-center border ${verdictIsAccepted(submissionData.verdict ?? executionResult.verdict)
-                      ? 'bg-green-50 border-green-200'
-                      : 'bg-red-50 border-red-200'
-                      }`}>
+                {/* Submission results — compact test-center style: stats, WHAT FAILED, ERROR / LOGS */}
+                {isSubmission && submissionData && (() => {
+                  const verdict = submissionData.verdict ?? executionResult.verdict;
+                  const accepted = verdictIsAccepted(verdict);
+                  const label = accepted
+                    ? 'Accepted'
+                    : verdict === 'WA'
+                      ? 'Wrong Answer'
+                      : verdict === 'TLE'
+                        ? 'Time Limit Exceeded'
+                        : verdict === 'MLE'
+                          ? 'Memory Limit Exceeded'
+                          : verdict === 'RE'
+                            ? 'Runtime Error'
+                            : verdict === 'CE'
+                              ? 'Compilation Error'
+                              : 'Rejected';
 
-                      {/* Verdict Icon */}
-                      <div className="mb-3">
-                        {verdictIsAccepted(submissionData.verdict ?? executionResult.verdict) ? (
-                          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mb-2">
-                            <svg className="w-8 h-8 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  const subPassed = Number(passedCount) || 0;
+                  const subFailed = Number(failedCount) || 0;
+                  const subPending = Number(remainingCount) || 0;
+                  const subTotal = Number(totalTests) || 0;
+
+                  const logFromApi =
+                    submissionData.error_message ||
+                    submissionData.compile_output ||
+                    submissionData.stderr ||
+                    executionResult.error_message ||
+                    executionResult.stderr ||
+                    executionResult.stdout;
+                  let logText = logFromApi != null ? errorToDisplayString(logFromApi).trim() : '';
+                  if (
+                    !logText &&
+                    verdict === 'WA' &&
+                    Array.isArray(submissionResult?.failed_cases) &&
+                    submissionResult.failed_cases.length > 0
+                  ) {
+                    const fc = submissionResult.failed_cases[0];
+                    const yo = formatSubmissionValue(fc.actual_preview ?? fc.actual_output);
+                    logText = `Wrong Answer: Your output doesn't match the expected result.\nYour output: ${yo}`;
+                  }
+
+                  const hasFailedCases =
+                    Array.isArray(submissionResult?.failed_cases) && submissionResult.failed_cases.length > 0;
+                  // RE/CE/TLE/MLE: traceback / compile text is already shown inside "What failed" cards — avoid duplicating in Error / Logs.
+                  const showGlobalErrorLogs =
+                    Boolean(logText) && !(hasFailedCases && verdict !== 'WA');
+
+                  const shellClass = accepted
+                    ? 'space-y-4 rounded-xl border border-green-200 bg-green-50/90 p-3 sm:p-4'
+                    : 'space-y-4 rounded-xl border border-red-200 bg-rose-50/90 p-3 sm:p-4';
+
+                  return (
+                    <div className={shellClass}>
+                      <div
+                        className={`flex flex-wrap items-stretch justify-between gap-3 border-b pb-3 text-left ${
+                          accepted ? 'border-green-200' : 'border-red-200/80'
+                        }`}
+                      >
+                        <div className="flex min-w-0 items-start gap-3">
+                          {accepted ? (
+                            <svg className="h-8 w-8 shrink-0 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                              <path
+                                fillRule="evenodd"
+                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                clipRule="evenodd"
+                              />
                             </svg>
-                          </div>
-                        ) : (
-                          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-2">
-                            <svg className="w-8 h-8 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                          ) : (
+                            <svg className="h-8 w-8 shrink-0 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                              <path
+                                fillRule="evenodd"
+                                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                clipRule="evenodd"
+                              />
                             </svg>
+                          )}
+                          <div className="min-w-0">
+                            <p className={`text-base font-bold sm:text-lg ${accepted ? 'text-green-900' : 'text-red-900'}`}>
+                              {label}
+                            </p>
+                            <p className={`mt-0.5 text-xs sm:text-sm ${accepted ? 'text-green-800' : 'text-red-800/90'}`}>
+                              {accepted
+                                ? 'All hidden test cases passed — this problem is complete.'
+                                : 'Review the failed case(s) and logs below.'}
+                            </p>
                           </div>
-                        )}
+                        </div>
                       </div>
 
-                      <h3 className={`text-xl font-bold mb-1 ${verdictIsAccepted(submissionData.verdict ?? executionResult.verdict) ? 'text-green-800' : 'text-red-800'
-                        }`}>
-                        {verdictIsAccepted(submissionData.verdict ?? executionResult.verdict) ? 'Accepted' :
-                          submissionData.verdict === 'WA' ? 'Wrong Answer' :
-                            submissionData.verdict === 'TLE' ? 'Time Limit Exceeded' :
-                              submissionData.verdict === 'MLE' ? 'Memory Limit Exceeded' :
-                                submissionData.verdict === 'RE' ? 'Runtime Error' :
-                                  submissionData.verdict === 'CE' ? 'Compilation Error' : 'Rejected'}
-                      </h3>
-
-                      <p className={`text-sm mb-4 ${verdictIsAccepted(submissionData.verdict ?? executionResult.verdict) ? 'text-green-700' : 'text-red-700'
-                        }`}>
-                        {verdictIsAccepted(submissionData.verdict ?? executionResult.verdict)
-                          ? 'All hidden test cases passed — this problem is complete.'
-                          : 'One or more test cases failed. Please try again.'}
-                      </p>
-
-                      {/* Stats: Points, Passed, Failed, Total */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 max-w-2xl mx-auto">
-                        <div className="bg-white p-2 sm:p-3 rounded-lg border border-gray-200">
-                          <p className="text-xs text-gray-500 uppercase font-semibold mb-0.5 sm:mb-1">Points</p>
-                          <p className="text-base sm:text-lg font-bold text-gray-900">{submissionData.points_earned ?? 0}</p>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+                        <div className="rounded-lg border border-gray-200 bg-white p-2.5 shadow-sm sm:p-3">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 sm:text-xs">Passed</p>
+                          <p className="text-lg font-bold text-green-700 sm:text-xl">{subPassed}</p>
                         </div>
-                        <div className="bg-white p-2 sm:p-3 rounded-lg border border-gray-200">
-                          <p className="text-xs text-gray-500 uppercase font-semibold mb-0.5 sm:mb-1">Passed</p>
-                          <p className="text-base sm:text-lg font-bold text-green-700">{executionResult.passed_tests ?? 0}</p>
+                        <div className="rounded-lg border border-gray-200 bg-white p-2.5 shadow-sm sm:p-3">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 sm:text-xs">Pending</p>
+                          <p className="text-lg font-bold text-gray-900 sm:text-xl">{subPending}</p>
                         </div>
-                        <div className="bg-white p-2 sm:p-3 rounded-lg border border-gray-200">
-                          <p className="text-xs text-gray-500 uppercase font-semibold mb-0.5 sm:mb-1">Failed</p>
-                          <p className="text-base sm:text-lg font-bold text-red-700">{(executionResult.total_tests ?? 0) - (executionResult.passed_tests ?? 0)}</p>
+                        <div className="rounded-lg border border-gray-200 bg-white p-2.5 shadow-sm sm:p-3">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 sm:text-xs">Failed</p>
+                          <p className="text-lg font-bold text-red-600 sm:text-xl">{subFailed}</p>
                         </div>
-                        <div className="bg-white p-2 sm:p-3 rounded-lg border border-gray-200">
-                          <p className="text-xs text-gray-500 uppercase font-semibold mb-0.5 sm:mb-1">Total</p>
-                          <p className="text-base sm:text-lg font-bold text-gray-900">{executionResult.total_tests ?? 0}</p>
+                        <div className="rounded-lg border border-gray-200 bg-white p-2.5 shadow-sm sm:p-3">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 sm:text-xs">Total</p>
+                          <p className="text-lg font-bold text-gray-900 sm:text-xl">{subTotal}</p>
                         </div>
                       </div>
 
-                      {/* Error / Logs for Submission (compile output, stderr, runtime error) */}
-                      {(() => {
-                        const logContent = submissionData.error_message ||
-                          submissionData.compile_output ||
-                          submissionData.stderr ||
-                          executionResult.error_message ||
-                          executionResult.stderr ||
-                          executionResult.stdout;
-                        const hasLogs = logContent != null && errorToDisplayString(logContent).trim() !== '';
-                        return hasLogs ? (
-                          <div className="mt-4 sm:mt-6 text-left">
-                            <div className="bg-red-50 border border-red-200 rounded-lg overflow-hidden">
-                              <div className="bg-red-100 px-2.5 sm:px-3 py-2 border-b border-red-200 font-semibold text-xs text-red-800 uppercase flex items-center gap-2">
-                                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                </svg>
-                                Error / Logs
-                              </div>
-                              <div className="p-2.5 sm:p-3 bg-red-50/50 max-h-48 sm:max-h-64 overflow-y-auto">
-                                <pre className="text-xs font-mono whitespace-pre-wrap text-red-900 break-words">
-                                  {formatErrorMessage(logContent)}
-                                </pre>
-                              </div>
+                      {submissionData.points_earned != null && submissionData.points_earned !== '' ? (
+                        <div className="rounded-lg border border-gray-200 bg-white/95 px-3 py-2 text-center text-sm text-gray-800">
+                          <span className="font-semibold text-gray-900">Points earned:</span> {submissionData.points_earned}
+                        </div>
+                      ) : null}
+
+                      {!accepted && <SubmissionFailedCasesList failedCases={submissionResult?.failed_cases} />}
+
+                      {showGlobalErrorLogs ? (
+                        <div className="text-left">
+                          <div className="overflow-hidden rounded-lg border-2 border-red-300 bg-red-50 shadow-sm">
+                            <div className="flex items-center gap-2 border-b-2 border-red-300 bg-red-100 px-3 py-2">
+                              <svg className="h-4 w-4 shrink-0 text-red-700" fill="currentColor" viewBox="0 0 20 20">
+                                <path
+                                  fillRule="evenodd"
+                                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                              <span className="text-xs font-bold uppercase tracking-wide text-red-900">Error / Logs</span>
+                            </div>
+                            <div className="max-h-52 overflow-y-auto bg-red-50/90 p-3 sm:max-h-64">
+                              <pre className="break-words font-mono text-xs whitespace-pre-wrap text-red-900">
+                                {formatErrorMessage(logText)}
+                              </pre>
                             </div>
                           </div>
-                        ) : null;
-                      })()}
+                        </div>
+                      ) : null}
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Sample Run Results / Test Case Details (Only if NOT a submission or if needed for debugging) */}
                 {hasValidResults && !isSubmission && !loading?.sampleRun && tests[selectedTestCase] && (() => {
