@@ -31,6 +31,18 @@ function displayChallengeTitle(title) {
     return t;
 }
 
+/** True when backend message indicates the challenge is over (not a missing slug). */
+function isChallengeEndedApiMessage(msg) {
+    if (msg == null) return false;
+    const s = String(msg).toLowerCase();
+    return (
+        s.includes("challenge has ended") ||
+        s.includes("this challenge has ended") ||
+        s.includes("challenge is ended") ||
+        (s.includes("has ended") && s.includes("challenge"))
+    );
+}
+
 /** Basic email format validation (required, has @ and domain). */
 function isValidEmail(value) {
     if (!value || typeof value !== "string") return false;
@@ -470,14 +482,18 @@ export default function RegisterPage() {
                             />
                         </div>
                         <h2 className="mb-3 text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
-                            {reduxError && String(reduxError).toLowerCase().includes("registration")
-                                ? COPY.challengeNotFound.titleClosed
-                                : COPY.challengeNotFound.titleMissing}
+                            {isChallengeEndedApiMessage(reduxError)
+                                ? COPY.challengeEnded.title
+                                : reduxError && String(reduxError).toLowerCase().includes("registration")
+                                  ? COPY.challengeNotFound.titleClosed
+                                  : COPY.challengeNotFound.titleMissing}
                         </h2>
                         <p className="mb-8 max-w-md text-sm leading-relaxed text-gray-600 sm:text-base">
-                            {reduxError && String(reduxError).toLowerCase().includes("registration")
-                                ? reduxError
-                                : "Check the link or try again from the challenges page."}
+                            {isChallengeEndedApiMessage(reduxError)
+                                ? reduxError || COPY.challengeEnded.subtitle
+                                : reduxError && String(reduxError).toLowerCase().includes("registration")
+                                  ? reduxError
+                                  : "Check the link or try again from the challenges page."}
                         </p>
                         <Link
                             href={MARKETING_SITE_URL}

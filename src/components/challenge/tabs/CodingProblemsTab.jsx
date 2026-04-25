@@ -1,8 +1,15 @@
 "use client";
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef, useReducer } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { runSample, submitProblem, savePublicChallengeDraft, fetchPublicChallengeDraft, updateProblemCode } from "@/redux/features/publicChallenge/publicChallengeSlice";
+import {
+  runSample,
+  submitProblem,
+  savePublicChallengeDraft,
+  fetchPublicChallengeDraft,
+  updateProblemCode,
+  updateCodingWorkspace,
+} from "@/redux/features/publicChallenge/publicChallengeSlice";
 import MonacoEditor from "@/components/problemsComponents/MonacoEditor";
 import ChallengeWorkspaceLayout from "@/components/challenge/workspace/ChallengeWorkspaceLayout";
 import ProblemDescription from "@/components/challenge/editor/ProblemDescription";
@@ -11,12 +18,36 @@ import {
   FaSpinner,
   FaCheckCircle,
   FaCode,
+  FaSyncAlt,
 } from "react-icons/fa";
 import { generateCodeTemplate, getSupportedLanguages } from "@/utils/codeTemplates";
 import { debounce } from "@/utils/debounce";
+import { toast } from "react-toastify";
 import { getStoredLayout, storeLayout } from "@/utils/panelLayoutStorage";
 
 const normalizeDraftText = (value = "") => String(value).replace(/\r\n/g, "\n").trim();
+
+/**
+ * All executed sample tests passed (same idea as TestResults for a sample run).
+ * When the problem has no reference sample cases, any successful run payload counts as the pre-check.
+ */
+function isSampleRunAllTestsPassed(sampleRunResult, referenceCaseCount) {
+  if (!sampleRunResult?.status || !sampleRunResult?.data) return false;
+  const data = sampleRunResult.data;
+  const tests = data.tests || [];
+  if (referenceCaseCount === 0) {
+    if (tests.length === 0) return true;
+    return tests.every((t) => t.status === "AC");
+  }
+  const summary = data.summary || {};
+  const testsExecuted = summary.tests_executed ?? summary.total_tests ?? tests.length ?? 0;
+  const passedCount =
+    summary.passed ??
+    summary.passed_tests ??
+    (tests.length ? tests.filter((t) => t.status === "AC").length : 0);
+  if (tests.length > 0) return tests.every((t) => t.status === "AC");
+  return testsExecuted > 0 && passedCount === testsExecuted;
+}
 
 const InlineButtonSpinner = ({ className = '' }) => (
   <svg
@@ -50,6 +81,35 @@ const ButtonContent = ({ loading, label }) => (
   </span>
 );
 
+/** Local UI only — run/submit outcomes & language live in Redux (`codingWorkspace`) so MCQ ↔ Coding tab switches do not wipe them. */
+const initialCodingTabUi = {
+  code: "",
+  submitting: false,
+  submitted: false,
+  saveStatus: "",
+  isLoadingCode: false,
+  isSidebarExpanded: false,
+  selectedTestCase: 0,
+  sampleRunLoading: false,
+  isEditMode: false,
+  openResultsTrigger: 0,
+  showTemplateResetModal: false,
+  horizontalLayout: null,
+  verticalLayout: null,
+  isResizing: false,
+};
+
+function codingTabUiReducer(state, action) {
+  switch (action.type) {
+    case "PATCH":
+      return { ...state, ...action.patch };
+    case "BUMP_OPEN_RESULTS":
+      return { ...state, openResultsTrigger: state.openResultsTrigger + 1 };
+    default:
+      return state;
+  }
+}
+
 export default function CodingProblemsTab({
   challengeId,
   problems,
@@ -64,34 +124,62 @@ export default function CodingProblemsTab({
 }) {
   const dispatch = useDispatch();
   const problemSubmissions = useSelector((state) => state.publicChallenge.problemSubmissions);
+  const codingWorkspace = useSelector((state) => state.publicChallenge.codingWorkspace);
 
-  const [code, setCode] = useState("");
-  const [selectedLanguage, setSelectedLanguage] = useState("javascript");
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState(null);
-  const [saveStatus, setSaveStatus] = useState(""); // "saving", "saved", ""
-  const [isLoadingCode, setIsLoadingCode] = useState(false);
-  const [isSidebarExpanded, setIsSidebarExpanded] = useState(false); // Default to collapsed
-  const [selectedTestCase, setSelectedTestCase] = useState(0);
-  const [sampleRunResult, setSampleRunResult] = useState(null);
-  const [sampleRunLoading, setSampleRunLoading] = useState(false);
-  const [sampleRunError, setSampleRunError] = useState(null);
-  const [submissionResult, setSubmissionResult] = useState(null);
-  const [isEditMode, setIsEditMode] = useState(false);
-  /** Increment when run/submit starts or result arrives so mobile results panel opens reliably */
-  const [openResultsTrigger, setOpenResultsTrigger] = useState(0);
+  const patchWorkspace = useCallback(
+    (patch) => {
+      dispatch(updateCodingWorkspace({ challengeId: Number(challengeId), ...patch }));
+    },
+    [challengeId, dispatch]
+  );
 
-  const lastDraftFetchKeyRef = useRef(null);
+  const [ui, dispatchUi] = useReducer(codingTabUiReducer, initialCodingTabUi);
+  const patchUi = useCallback((patch) => {
+    dispatchUi({ type: "PATCH", patch });
+  }, []);
+  const bumpOpenResults = useCallback(() => {
+    dispatchUi({ type: "BUMP_OPEN_RESULTS" });
+  }, []);
+
+  const {
+    selectedLanguage,
+    sampleRunResult,
+    sampleRunError,
+    submissionResult,
+    submitRunGateFingerprint,
+    tabError,
+  } = codingWorkspace;
+
+  const {
+    code,
+    submitting,
+    submitted,
+    saveStatus,
+    isLoadingCode,
+    isSidebarExpanded,
+    selectedTestCase,
+    sampleRunLoading,
+    isEditMode,
+    openResultsTrigger,
+    showTemplateResetModal,
+    horizontalLayout,
+    verticalLayout,
+    isResizing,
+  } = ui;
+
+  const setSelectedTestCase = useCallback((value) => {
+    dispatchUi({ type: "PATCH", patch: { selectedTestCase: value } });
+  }, []);
+
+  /** Latest problem+language load key — compared after async draft fetch to avoid applying stale code. */
+  const latestDraftFetchTargetRef = useRef("");
+  /** Always latest `problems` list so async draft handlers resolve templates for the correct id (not a stale closure). */
+  const problemsRef = useRef(problems);
   const lastSavedByKeyRef = useRef({});
   const saveTimeoutRef = useRef(null);
   const pendingSaveArgsRef = useRef(null);
   const savingKeyRef = useRef(null);
 
-  // Panel layout state - must be declared before any early returns
-  const [horizontalLayout, setHorizontalLayout] = useState(null);
-  const [verticalLayout, setVerticalLayout] = useState(null);
-  const [isResizing, setIsResizing] = useState(false);
   const [isLg, setIsLg] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 1024px)');
@@ -105,6 +193,8 @@ export default function CodingProblemsTab({
     () => problems?.find((p) => p.id === selectedProblemId),
     [problems, selectedProblemId]
   );
+
+  problemsRef.current = problems;
 
   const solvedSubmission = selectedProblem?.user_submission || null;
   const isSolvedReadOnly = Boolean(selectedProblem?.is_solved && solvedSubmission && !isEditMode);
@@ -149,7 +239,7 @@ export default function CodingProblemsTab({
     }
 
     savingKeyRef.current = saveKey;
-    setSaveStatus("saving");
+    patchUi({ saveStatus: "saving" });
 
     try {
       await dispatch(savePublicChallengeDraft({
@@ -164,16 +254,16 @@ export default function CodingProblemsTab({
       lastSavedByKeyRef.current[saveKey] = normalizedCode;
       dispatch(updateProblemCode({ problemId, language: lang, sourceCode: codeToSave }));
 
-      setSaveStatus("saved");
-      setTimeout(() => setSaveStatus(""), 2000);
+      patchUi({ saveStatus: "saved" });
+      setTimeout(() => patchUi({ saveStatus: "" }), 2000);
     } catch {
-      setSaveStatus("");
+      patchUi({ saveStatus: "" });
     } finally {
       if (savingKeyRef.current === saveKey) {
         savingKeyRef.current = null;
       }
     }
-  }, [challengeId, userId, registrationId, dispatch, shouldPersistDraft, selectedProblemId, isSolvedReadOnly]);
+  }, [challengeId, userId, registrationId, dispatch, shouldPersistDraft, selectedProblemId, isSolvedReadOnly, patchUi]);
 
   const scheduleSaveDraft = useCallback((codeToSave, problemId, lang) => {
     pendingSaveArgsRef.current = { codeToSave, problemId, lang };
@@ -222,13 +312,23 @@ export default function CodingProblemsTab({
     return [];
   }, [selectedProblem]);
 
+  const submitGateFingerprint = useMemo(() => {
+    if (!selectedProblemId || !selectedLanguage) return "";
+    return `${selectedProblemId}:${selectedLanguage}:${normalizeDraftText(code)}`;
+  }, [selectedProblemId, selectedLanguage, code]);
+
+  const sampleRunPassedForCurrentCode =
+    Boolean(submitGateFingerprint) &&
+    submitRunGateFingerprint != null &&
+    submitRunGateFingerprint === submitGateFingerprint;
+
   // Load saved layouts on mount
   useEffect(() => {
     const storedHorizontal = getStoredLayout(`coding-problems-horizontal-${challengeId}`);
     const storedVertical = getStoredLayout(`coding-problems-vertical-${challengeId}`);
-    if (storedHorizontal) setHorizontalLayout(storedHorizontal);
-    if (storedVertical) setVerticalLayout(storedVertical);
-  }, [challengeId]);
+    if (storedHorizontal) patchUi({ horizontalLayout: storedHorizontal });
+    if (storedVertical) patchUi({ verticalLayout: storedVertical });
+  }, [challengeId, patchUi]);
 
   // Handle layout changes - debounced to avoid too many writes
   const debouncedSaveHorizontal = useCallback(
@@ -246,57 +346,54 @@ export default function CodingProblemsTab({
   );
 
   const handleHorizontalLayoutChange = useCallback((layout) => {
-    setHorizontalLayout(layout);
+    patchUi({ horizontalLayout: layout });
     debouncedSaveHorizontal(layout);
-  }, [debouncedSaveHorizontal]);
+  }, [debouncedSaveHorizontal, patchUi]);
 
   const handleVerticalLayoutChange = useCallback((layout) => {
-    setVerticalLayout(layout);
+    patchUi({ verticalLayout: layout });
     debouncedSaveVertical(layout);
-  }, [debouncedSaveVertical]);
+  }, [debouncedSaveVertical, patchUi]);
 
   const handlePanelDrag = useCallback((isDragging) => {
-    setIsResizing(isDragging);
-  }, []);
+    patchUi({ isResizing: isDragging });
+  }, [patchUi]);
 
   // Load code template or draft when problem or language changes
   useEffect(() => {
     if (!selectedProblemId || !selectedLanguage || !userId) return;
 
+    const fetchKey = `${challengeId}:${userId}:${selectedProblemId}:${selectedLanguage}`;
+    latestDraftFetchTargetRef.current = fetchKey;
+    const capturedFetchKey = fetchKey;
+    const capturedProblemId = selectedProblemId;
+    const capturedLanguage = selectedLanguage;
+
     // If problem already solved and not in edit mode, load latest AC submission and lock editor.
     if (isSolvedReadOnly && solvedSubmission) {
-      setIsLoadingCode(true);
       const solvedLang = solvedSubmission.language || selectedLanguage;
-      const solvedCode = solvedSubmission.source_code || '';
+      const solvedCode = solvedSubmission.source_code || "";
       if (solvedLang && solvedLang !== selectedLanguage) {
-        setSelectedLanguage(solvedLang);
+        patchWorkspace({ selectedLanguage: solvedLang });
       }
-      setCode(solvedCode);
-      setIsLoadingCode(false);
+      patchUi({ code: solvedCode, isLoadingCode: false });
       return;
     }
-
-    const fetchKey = `${challengeId}:${userId}:${selectedProblemId}:${selectedLanguage}`;
-    if (lastDraftFetchKeyRef.current === fetchKey) {
-      return;
-    }
-    lastDraftFetchKeyRef.current = fetchKey;
 
     const cached = problemSubmissions?.[selectedProblemId];
     if (cached && cached.language === selectedLanguage && typeof cached.source_code === 'string') {
-      setIsLoadingCode(true);
+      patchUi({ isLoadingCode: true });
       if (shouldPersistDraft(cached.source_code)) {
-        setCode(cached.source_code);
+        patchUi({ code: cached.source_code, isLoadingCode: false });
       } else if (currentTemplate) {
-        setCode(currentTemplate);
+        patchUi({ code: currentTemplate, isLoadingCode: false });
       } else {
-        setCode("");
+        patchUi({ code: "", isLoadingCode: false });
       }
-      setIsLoadingCode(false);
       return;
     }
 
-    setIsLoadingCode(true);
+    patchUi({ isLoadingCode: true });
 
     // Fetch draft from backend (registrationId required for AUTO problem selection mode)
     dispatch(fetchPublicChallengeDraft({
@@ -308,49 +405,94 @@ export default function CodingProblemsTab({
     }))
       .unwrap()
       .then((draft) => {
-        if (draft && draft.source_code && draft.language === selectedLanguage && shouldPersistDraft(draft.source_code)) {
-          setCode(draft.source_code);
-        } else {
-          // Fallback to template if no draft
-          if (selectedProblem?.interface_spec) {
-            const template = generateCodeTemplate(
-              selectedLanguage,
-              selectedProblem.interface_spec,
-              selectedProblem.function_templates
-            );
-            setCode(template);
+        if (latestDraftFetchTargetRef.current !== capturedFetchKey) return;
+        const problemForLoad = problemsRef.current?.find((p) => p.id === capturedProblemId) || null;
+
+        const applyTemplateOrEmpty = () => {
+          if (problemForLoad?.interface_spec) {
+            patchUi({
+              code: generateCodeTemplate(
+                capturedLanguage,
+                problemForLoad.interface_spec,
+                problemForLoad.function_templates
+              ),
+            });
           } else {
-            setCode("");
+            patchUi({ code: "" });
           }
+        };
+
+        if (draft && draft.source_code && draft.language === capturedLanguage) {
+          const draftNorm = normalizeDraftText(draft.source_code);
+          if (!draftNorm) {
+            applyTemplateOrEmpty();
+            return;
+          }
+          if (problemForLoad?.interface_spec) {
+            const tplNorm = normalizeDraftText(
+              generateCodeTemplate(
+                capturedLanguage,
+                problemForLoad.interface_spec,
+                problemForLoad.function_templates
+              )
+            );
+            if (tplNorm && draftNorm === tplNorm) {
+              applyTemplateOrEmpty();
+              return;
+            }
+          }
+          patchUi({ code: draft.source_code });
+        } else {
+          applyTemplateOrEmpty();
         }
       })
       .catch(() => {
-        // Fallback on error
-        if (selectedProblem?.interface_spec) {
-          const template = generateCodeTemplate(
-            selectedLanguage,
-            selectedProblem.interface_spec,
-            selectedProblem.function_templates
-          );
-          setCode(template);
+        if (latestDraftFetchTargetRef.current !== capturedFetchKey) return;
+        const problemForLoad = problemsRef.current?.find((p) => p.id === capturedProblemId) || null;
+        if (problemForLoad?.interface_spec) {
+          patchUi({
+            code: generateCodeTemplate(
+              capturedLanguage,
+              problemForLoad.interface_spec,
+              problemForLoad.function_templates
+            ),
+          });
         }
       })
       .finally(() => {
-        setIsLoadingCode(false);
+        if (latestDraftFetchTargetRef.current === capturedFetchKey) {
+          patchUi({ isLoadingCode: false });
+        }
       });
 
-  }, [selectedProblemId, selectedLanguage, userId, registrationId, challengeId, dispatch, selectedProblem, shouldPersistDraft, problemSubmissions, currentTemplate]);
+  }, [
+    selectedProblemId,
+    selectedLanguage,
+    userId,
+    registrationId,
+    challengeId,
+    dispatch,
+    selectedProblem,
+    shouldPersistDraft,
+    problemSubmissions,
+    currentTemplate,
+    isSolvedReadOnly,
+    solvedSubmission,
+    patchUi,
+    patchWorkspace,
+  ]);
 
   // Auto-save code draft when code changes
   const handleCodeChange = useCallback((newCode) => {
     if (isSolvedReadOnly) {
       return;
     }
-    setCode(newCode);
+    patchWorkspace({ submitRunGateFingerprint: null });
+    patchUi({ code: newCode });
     if (selectedProblemId && selectedLanguage) {
       scheduleSaveDraft(newCode, selectedProblemId, selectedLanguage);
     }
-  }, [selectedProblemId, selectedLanguage, scheduleSaveDraft, isSolvedReadOnly]);
+  }, [selectedProblemId, selectedLanguage, scheduleSaveDraft, isSolvedReadOnly, patchUi, patchWorkspace]);
 
   // Handle language change
   const handleLanguageChange = useCallback(
@@ -359,11 +501,13 @@ export default function CodingProblemsTab({
       if (selectedLanguage === newLanguage) return;
       await flushPendingSave();
       await doSaveDraft(code, selectedProblemId, selectedLanguage);
-      setIsLoadingCode(true);
-      setCode('');
-      setSelectedLanguage(newLanguage);
+      patchWorkspace({
+        submitRunGateFingerprint: null,
+        selectedLanguage: newLanguage,
+      });
+      patchUi({ isLoadingCode: true, code: "" });
     },
-    [selectedLanguage, code, selectedProblemId, flushPendingSave, doSaveDraft, isSolvedReadOnly]
+    [selectedLanguage, code, selectedProblemId, flushPendingSave, doSaveDraft, isSolvedReadOnly, patchUi, patchWorkspace]
   );
 
   // Handle problem selection
@@ -377,13 +521,17 @@ export default function CodingProblemsTab({
         await doSaveDraft(code, selectedProblemId, selectedLanguage);
       }
 
+      patchWorkspace({
+        submitRunGateFingerprint: null,
+        sampleRunResult: null,
+        submissionResult: null,
+        sampleRunError: null,
+        tabError: null,
+      });
+      patchUi({ isLoadingCode: true, code: "", isEditMode: false });
       onSelectProblem(problem.id);
-      setIsEditMode(false);
-      setSampleRunResult(null);
-      setSubmissionResult(null);
-      setSampleRunError(null);
     },
-    [code, selectedProblemId, selectedLanguage, onSelectProblem, flushPendingSave, doSaveDraft, isSolvedReadOnly]
+    [code, selectedProblemId, selectedLanguage, onSelectProblem, flushPendingSave, doSaveDraft, isSolvedReadOnly, patchUi, patchWorkspace]
   );
 
   useEffect(() => {
@@ -400,16 +548,19 @@ export default function CodingProblemsTab({
       return;
     }
     if (!selectedProblem?.id || !code.trim()) {
-      setError("Please write some code before running");
+      patchWorkspace({ tabError: "Please write some code before running" });
       return;
     }
 
-    setSampleRunLoading(true);
-    setSampleRunError(null);
-    setSampleRunResult(null);
-    setSubmissionResult(null);
-    setError(null);
-    setOpenResultsTrigger((t) => t + 1);
+    patchWorkspace({
+      sampleRunError: null,
+      submitRunGateFingerprint: null,
+      sampleRunResult: null,
+      submissionResult: null,
+      tabError: null,
+    });
+    patchUi({ sampleRunLoading: true });
+    bumpOpenResults();
 
     try {
       const result = await dispatch(
@@ -428,41 +579,75 @@ export default function CodingProblemsTab({
         // TestResults expects: { status: true, data: { tests, summary } }
         const runnerResult = result.data;
         if (runnerResult?.status && runnerResult?.data) {
-          setSampleRunResult({
-            status: runnerResult.status !== false,
-            data: runnerResult.data
+          const wrapped = { status: runnerResult.status !== false, data: runnerResult.data };
+          const fp = `${selectedProblemId}:${selectedLanguage}:${normalizeDraftText(code)}`;
+          patchWorkspace({
+            sampleRunResult: wrapped,
+            submitRunGateFingerprint: isSampleRunAllTestsPassed(wrapped, referenceTestCases.length)
+              ? fp
+              : null,
           });
-          setOpenResultsTrigger((t) => t + 1);
+          bumpOpenResults();
         } else {
-          setSampleRunError(runnerResult?.message || "Sample run failed");
-          setOpenResultsTrigger((t) => t + 1);
+          patchWorkspace({
+            submitRunGateFingerprint: null,
+            sampleRunError: runnerResult?.message || "Sample run failed",
+          });
+          bumpOpenResults();
         }
       } else {
-        setSampleRunError(result.message || "Sample run failed");
-        setOpenResultsTrigger((t) => t + 1);
+        patchWorkspace({
+          submitRunGateFingerprint: null,
+          sampleRunError: result.message || "Sample run failed",
+        });
+        bumpOpenResults();
       }
     } catch (err) {
-      setSampleRunError(typeof err === 'string' ? err : (err?.message || "Failed to run code. Please try again."));
-      setOpenResultsTrigger((t) => t + 1);
+      patchWorkspace({
+        submitRunGateFingerprint: null,
+        sampleRunError:
+          typeof err === "string" ? err : err?.message || "Failed to run code. Please try again.",
+      });
+      bumpOpenResults();
     } finally {
-      setSampleRunLoading(false);
+      patchUi({ sampleRunLoading: false });
     }
-  }, [selectedProblem, selectedProblemId, code, selectedLanguage, userId, registrationId, challengeId, dispatch, isSolvedReadOnly]);
+  }, [
+    selectedProblem,
+    selectedProblemId,
+    code,
+    selectedLanguage,
+    userId,
+    registrationId,
+    challengeId,
+    dispatch,
+    isSolvedReadOnly,
+    referenceTestCases.length,
+    patchUi,
+    patchWorkspace,
+    bumpOpenResults,
+  ]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (isSolvedReadOnly) {
       return;
     }
     if (!code.trim()) {
-      setError("Please write some code before submitting.");
+      patchWorkspace({ tabError: "Please write some code before submitting." });
+      return;
+    }
+    if (!sampleRunPassedForCurrentCode) {
+      const msg =
+        "Run all sample tests successfully (Run) before submitting. That keeps unnecessary load off the judging server.";
+      patchWorkspace({ tabError: msg });
+      toast.warning(msg, { position: "top-center", autoClose: 9000 });
+      bumpOpenResults();
       return;
     }
 
-    setSubmitting(true);
-    setError(null);
-    setSampleRunResult(null);
-    setSubmissionResult(null);
-    setOpenResultsTrigger((t) => t + 1);
+    patchWorkspace({ tabError: null, submissionResult: null });
+    patchUi({ submitting: true });
+    bumpOpenResults();
 
     try {
       const result = await dispatch(
@@ -478,34 +663,79 @@ export default function CodingProblemsTab({
       ).unwrap();
 
       if (result.success && result.data) {
-        setSubmissionResult(result.data);
-        setOpenResultsTrigger((t) => t + 1);
-        setSubmitted(true);
+        patchWorkspace({ submissionResult: result.data });
+        patchUi({ submitted: true });
+        bumpOpenResults();
         // If AC, exit edit mode (lock again on solved)
-        if (result.data?.execution_result?.verdict === 'AC' || result.data?.submission?.verdict === 'AC') {
-          setIsEditMode(false);
+        const submitVerdict =
+          result.data?.submission?.verdict ?? result.data?.execution_result?.verdict;
+        const submitAc =
+          submitVerdict != null &&
+          ["AC", "ACCEPTED"].includes(String(submitVerdict).trim().toUpperCase());
+        if (submitAc) {
+          patchUi({ isEditMode: false });
+          toast.success("All test cases passed.", { position: "top-center", autoClose: 7800 });
         }
         // Reset after 3 seconds
         setTimeout(() => {
-          setSubmitted(false);
+          patchUi({ submitted: false });
         }, 3000);
       } else {
-        setError(result.message || "Submission failed");
-        setOpenResultsTrigger((t) => t + 1);
+        patchWorkspace({ tabError: result.message || "Submission failed" });
+        bumpOpenResults();
       }
     } catch (err) {
-      setError(err?.message || "Failed to submit solution. Please try again.");
-      setOpenResultsTrigger((t) => t + 1);
+      patchWorkspace({ tabError: err?.message || "Failed to submit solution. Please try again." });
+      bumpOpenResults();
     } finally {
-      setSubmitting(false);
+      patchUi({ submitting: false });
     }
-  };
+  }, [
+    isSolvedReadOnly,
+    code,
+    sampleRunPassedForCurrentCode,
+    dispatch,
+    challengeId,
+    selectedProblemId,
+    userId,
+    registrationId,
+    accessCode,
+    selectedLanguage,
+    patchUi,
+    patchWorkspace,
+    bumpOpenResults,
+  ]);
 
   const handleClearSampleRun = useCallback(() => {
-    setSampleRunResult(null);
-    setSubmissionResult(null);
-    setSampleRunError(null);
-  }, []);
+    patchWorkspace({
+      sampleRunResult: null,
+      submitRunGateFingerprint: null,
+      submissionResult: null,
+      sampleRunError: null,
+      tabError: null,
+    });
+  }, [patchWorkspace]);
+
+  const confirmRefreshTemplate = useCallback(() => {
+    if (!selectedProblem) {
+      patchUi({ showTemplateResetModal: false });
+      return;
+    }
+    const template = generateCodeTemplate(
+      selectedLanguage,
+      selectedProblem.interface_spec,
+      selectedProblem.function_templates
+    );
+    patchWorkspace({
+      submitRunGateFingerprint: null,
+      sampleRunResult: null,
+      sampleRunError: null,
+      submissionResult: null,
+      tabError: null,
+    });
+    patchUi({ code: template, showTemplateResetModal: false });
+    bumpOpenResults();
+  }, [selectedProblem, selectedLanguage, patchUi, patchWorkspace, bumpOpenResults]);
 
   // Get current problem index - MUST be before any early returns
   const currentProblemIndex = useMemo(() => {
@@ -553,7 +783,7 @@ export default function CodingProblemsTab({
             {/* Sidebar Header */}
             <div
               className="shrink-0 px-4 py-3 border-b border-gray-200 bg-white cursor-pointer hover:bg-gray-50 transition-colors"
-              onClick={() => setIsSidebarExpanded(!isSidebarExpanded)}
+              onClick={() => patchUi({ isSidebarExpanded: !isSidebarExpanded })}
             >
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-900">
@@ -563,7 +793,7 @@ export default function CodingProblemsTab({
                   className="text-gray-400 hover:text-gray-600 transition-colors"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setIsSidebarExpanded(!isSidebarExpanded);
+                    patchUi({ isSidebarExpanded: !isSidebarExpanded });
                   }}
                 >
                   <svg
@@ -725,13 +955,26 @@ export default function CodingProblemsTab({
             {Boolean(selectedProblem?.is_solved && solvedSubmission) && isSolvedReadOnly && (
               <button
                 type="button"
-                onClick={() => setIsEditMode(true)}
+                onClick={() => {
+                  patchWorkspace({ submitRunGateFingerprint: null });
+                  patchUi({ isEditMode: true });
+                }}
                 className="shrink-0 min-h-[40px] sm:min-h-0 inline-flex items-center justify-center px-2.5 sm:px-4 py-2 sm:py-1.5 text-xs sm:text-sm font-medium text-white bg-gray-600 hover:bg-gray-500 rounded transition-colors"
                 title="Edit solved submission"
               >
                 Edit
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => patchUi({ showTemplateResetModal: true })}
+              disabled={isSolvedReadOnly || isLoadingCode || !selectedProblem}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded text-gray-300 transition-colors hover:bg-gray-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 sm:h-8 sm:w-8"
+              title="Refresh starter template"
+              aria-label="Refresh starter template"
+            >
+              <FaSyncAlt className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden />
+            </button>
             <button
               onClick={handleRun}
               disabled={isSolvedReadOnly || sampleRunLoading || submitting || !code.trim()}
@@ -742,9 +985,20 @@ export default function CodingProblemsTab({
             </button>
             <button
               onClick={handleSubmit}
-              disabled={isSolvedReadOnly || submitting || sampleRunLoading || !code.trim() || !selectedProblem}
+              disabled={
+                isSolvedReadOnly ||
+                submitting ||
+                sampleRunLoading ||
+                !code.trim() ||
+                !selectedProblem ||
+                !sampleRunPassedForCurrentCode
+              }
               className="shrink-0 min-h-[40px] sm:min-h-0 min-w-[76px] sm:min-w-[96px] inline-flex items-center justify-center px-2.5 sm:px-4 py-2 sm:py-1.5 text-xs sm:text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:bg-red-600/50 disabled:cursor-not-allowed rounded transition-colors"
-              title="Submit solution for evaluation"
+              title={
+                !sampleRunPassedForCurrentCode && !isSolvedReadOnly
+                  ? "Run all sample tests successfully first, then submit"
+                  : "Submit solution for evaluation"
+              }
             >
               <ButtonContent loading={submitting} label="Submit" />
             </button>
@@ -762,9 +1016,9 @@ export default function CodingProblemsTab({
           </div>
         ) : (
           <MonacoEditor
-            key={`${selectedProblemId}-${selectedLanguage}`}
+            key={`${challengeId}-${selectedProblemId}-${selectedLanguage}`}
             language={selectedLanguage}
-            defaultValue={code}
+            value={code ?? ""}
             onChange={handleCodeChange}
             challengeMode={true}
             readOnly={isSolvedReadOnly}
@@ -780,7 +1034,7 @@ export default function CodingProblemsTab({
       sampleRunResult={sampleRunResult}
       submissionResult={submissionResult}
       loading={{ sampleRun: sampleRunLoading, submit: submitting }}
-      error={sampleRunError || error}
+      error={sampleRunError || tabError}
       onClearSampleRun={handleClearSampleRun}
       selectedTestCase={selectedTestCase}
       setSelectedTestCase={setSelectedTestCase}
@@ -788,19 +1042,63 @@ export default function CodingProblemsTab({
     />
   );
 
-  const openResultsOnMobile = !!(sampleRunResult || submissionResult || sampleRunLoading || submitting || sampleRunError || error);
+  const openResultsOnMobile = !!(
+    sampleRunResult ||
+    submissionResult ||
+    sampleRunLoading ||
+    submitting ||
+    sampleRunError ||
+    tabError
+  );
 
   return (
-    <ChallengeWorkspaceLayout
-      challengeId={challengeId}
-      timeLeft={timeLeft}
-      leftPanelContent={renderLeftPanelContent()}
-      rightPanelContent={rightPanelContent}
-      resultsPanelContent={resultsPanelContent}
-      onHorizontalDrag={handlePanelDrag}
-      onVerticalDrag={handlePanelDrag}
-      openResultsOnMobile={openResultsOnMobile}
-      openResultsTrigger={openResultsTrigger}
-    />
+    <>
+      <ChallengeWorkspaceLayout
+        challengeId={challengeId}
+        timeLeft={timeLeft}
+        leftPanelContent={renderLeftPanelContent()}
+        rightPanelContent={rightPanelContent}
+        resultsPanelContent={resultsPanelContent}
+        onHorizontalDrag={handlePanelDrag}
+        onVerticalDrag={handlePanelDrag}
+        openResultsOnMobile={openResultsOnMobile}
+        openResultsTrigger={openResultsTrigger}
+      />
+      {showTemplateResetModal ? (
+        <div className="fixed inset-0 z-[10060] flex items-center justify-center bg-black/50 px-4">
+          <div
+            className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-5 shadow-xl sm:p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="template-reset-title"
+          >
+            <h3 id="template-reset-title" className="text-lg font-semibold text-gray-900">
+              Refresh starter template?
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-gray-600">
+              Your current code in the editor will be replaced by the default template for this problem and language.
+              Run sample tests again before submitting.
+            </p>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => patchUi({ showTemplateResetModal: false })}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmRefreshTemplate}
+                className="inline-flex items-center gap-2 rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white shadow transition-colors hover:bg-orange-700"
+              >
+                <FaSyncAlt className="h-4 w-4" aria-hidden />
+                Refresh template
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
