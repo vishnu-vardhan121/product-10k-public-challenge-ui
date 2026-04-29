@@ -489,7 +489,7 @@ export default function ChallengeInterface({ challengeId, onSessionInvalid, utmQ
       className="h-dvh sm:h-screen bg-gray-50 flex flex-col overflow-hidden relative"
       style={rootStyle}
     >
-      {/* Camera required: local mirror only — not recorded or uploaded */}
+      {/* Camera required for monitored challenge attempts */}
       {sessionActive && cameraStatus !== "ready" ? (
         <div
           className="fixed inset-0 z-[10040] flex flex-col items-center justify-center bg-gray-950 px-5 text-center text-white"
@@ -504,8 +504,7 @@ export default function ChallengeInterface({ challengeId, onSessionInvalid, utmQ
                 Camera required for this challenge
               </p>
               <p className="mt-4 max-w-md text-sm leading-relaxed text-gray-300 sm:text-base">
-                Allow access when your browser asks. You will see a small mirror preview in the top bar — it stays on your
-                device only. We do not record, save, or upload your video.
+                Allow access when your browser asks. You will see a small camera preview in the top bar during your attempt.
               </p>
             </>
           ) : cameraStatus === "unsupported" ? (
@@ -526,7 +525,7 @@ export default function ChallengeInterface({ challengeId, onSessionInvalid, utmQ
               </p>
               <p className="mt-4 max-w-md text-sm leading-relaxed text-gray-300 sm:text-base">
                 Without the camera we cannot confirm you are present for a fair attempt. The preview is only on your
-                screen — nothing is recorded or stored on our servers.
+                screen while you are taking the challenge.
               </p>
               <button
                 type="button"
@@ -573,7 +572,7 @@ export default function ChallengeInterface({ challengeId, onSessionInvalid, utmQ
                 className={`relative aspect-video w-[5.75rem] shrink-0 overflow-hidden rounded-md border-2 shadow-md sm:w-[6.75rem] md:w-[7.75rem] ${
                   cameraStatus === "ready" ? "border-gray-300 bg-white" : "border-gray-200 bg-gray-100"
                 }`}
-                title="Camera preview on this device only — stream is not saved or uploaded"
+                title="Camera preview during challenge attempt"
               >
                 {cameraStatus === "ready" ? (
                   <div
